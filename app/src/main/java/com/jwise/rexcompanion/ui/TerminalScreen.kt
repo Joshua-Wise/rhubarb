@@ -283,8 +283,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
-                    IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
+                    if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
+                    if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
@@ -369,9 +369,24 @@ private suspend fun xtermPhoneGrid(webView: WebView): PhoneGrid? = try {
     PhoneGrid(g["cols"]!!.jsonPrimitive.int, g["rows"]!!.jsonPrimitive.int, g["cw"]!!.jsonPrimitive.int, g["ch"]!!.jsonPrimitive.int)
 } catch (e: Exception) { null }
 
+/**
+ * The size each pane had before the phone took it over. Rex.app doesn't own its panes; it sets a
+ * size only when its window lays out, so a pane the phone lets go of would otherwise keep the
+ * phone's size. Kept for the app's lifetime so a quick reopen doesn't record the phone's size.
+ */
+private val macSizes = java.util.concurrent.ConcurrentHashMap<String, JsonObject>()
+
 /** Claim the block so its size follows this phone, then size it to [grid]. */
 private suspend fun takeOver(h: RexHub, sessionId: String, blockId: String, grid: suspend () -> PhoneGrid?): Boolean = try {
     val g = grid() ?: throw IllegalStateException("no grid")
+    if (!macSizes.containsKey(blockId)) {
+        runCatching {
+            val cur = h.control.blockCall(sessionId, blockId, "com.superlogical.terminal.size")?.jsonObject
+            if (cur != null) macSizes[blockId] = buildJsonObject {
+                for (k in listOf("columns", "rows", "cell_width_px", "cell_height_px")) cur[k]?.let { put(k, it) }
+            }
+        }
+    }
     h.control.call("session.own_block", buildJsonObject {
         put("session_id", sessionId); put("block_ids", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(blockId)) }); put("mode", "take")
     })
@@ -381,11 +396,16 @@ private suspend fun takeOver(h: RexHub, sessionId: String, blockId: String, grid
     true
 } catch (e: Exception) { false }
 
+/** Give up the block and put back the size it had before [takeOver] (applies at once with no owner). */
 private suspend fun release(h: RexHub, sessionId: String, blockId: String) {
     try {
         h.control.call("session.disown_block", buildJsonObject {
             put("session_id", sessionId); put("block_ids", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(blockId)) })
         })
+        macSizes[blockId]?.let { size ->
+            h.control.blockCall(sessionId, blockId, "com.superlogical.terminal.resize", size)
+            macSizes.remove(blockId)
+        }
     } catch (_: Exception) {}
 }
 

@@ -12,8 +12,8 @@ android {
         applicationId = "com.jwise.rexcompanion"
         minSdk = 28
         targetSdk = 37
-        versionCode = 13
-        versionName = "0.4.2"
+        versionCode = 14
+        versionName = "0.4.3"
     }
 
     buildTypes {
