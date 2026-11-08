@@ -39,19 +39,24 @@ sealed interface TermEvent {
 /**
  * One terminal block's output, via `/api/data` with subprotocol `rex.data.terminal.v1`.
  *
- * The stream begins with a binary Ghostty snapshot ("GHOSTSNP...") that only Ghostty-based
- * emulators can read. The server always sends a `resize` Rex message right after it, tagged
- * with the random channel nonce, so we drop every byte before the first
- * `ESC _ rex1;<nonce>;` and seed the emulator from `com.superlogical.terminal.format`
- * (`format: "vt"`) instead. From then on the stream is ordinary VT output that xterm.js
- * renders directly. (Embedding libghostty-vt would make the seed exact; this is the
- * pragmatic v1.)
+ * The stream begins with a binary Ghostty snapshot ("GHOSTSNP...") followed by a `resize` Rex
+ * message tagged with the random channel nonce (`ESC _ rex1;<nonce>;`). The Ghostty renderer
+ * restores that snapshot directly (see [restoreSnapshot]), giving the Mac's exact screen and
+ * scrollback. Otherwise (xterm.js, or a snapshot this build can't decode) the snapshot is
+ * dropped and the emulator is seeded from `com.superlogical.terminal.format` (`format: "vt"`).
+ * From then on the stream is ordinary VT output.
  */
 class TerminalStream(
     private val control: RexControl,
     private val sessionId: String,
     private val blockId: String,
     private val scope: CoroutineScope,
+    /**
+     * Restores the stream's opening Ghostty snapshot into the emulator, returning false if it
+     * can't. When set and it succeeds, the snapshot replaces the VT redraw seed, and the output
+     * after it continues exactly where the snapshot was cut. Null for emulators that can't read it.
+     */
+    private val restoreSnapshot: (suspend (ByteArray) -> Boolean)? = null,
 ) {
     private val _events = MutableSharedFlow<TermEvent>(replay = 0, extraBufferCapacity = 4096)
     val events: SharedFlow<TermEvent> = _events
@@ -69,6 +74,8 @@ class TerminalStream(
     private var skippingSnapshot = true
     private var seedPending = false
     private var carry = ByteArray(0)
+    private val snapshot = java.io.ByteArrayOutputStream()
+    private var snapshotTooBig = false
     private val heldDuringSeed = ArrayList<ByteArray>()
 
     fun start() {
@@ -97,6 +104,7 @@ class TerminalStream(
                     })!!.jsonObject["ticket"]!!.jsonPrimitive.content
                     val ticket = Base64.decode(t, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
                     bytesReceived = 0; skippingSnapshot = true; carry = ByteArray(0); nonce = null
+                    snapshot.reset(); snapshotTooBig = false
                     open(byteArrayOf(0x01) + ticket, end)
                 } else {
                     _events.emit(TermEvent.Status("resuming…"))
@@ -181,16 +189,24 @@ class TerminalStream(
                 val keep = partialSuffix(buf, m)
                 val emitLen = buf.size - keep
                 if (!skippingSnapshot && emitLen > 0) output(buf.copyOfRange(0, emitLen))
+                else if (skippingSnapshot) keepSnapshot(buf, emitLen)
                 carry = buf.copyOfRange(emitLen, buf.size)
                 return
             }
             if (!skippingSnapshot && i > 0) output(buf.copyOfRange(0, i))
+            else if (skippingSnapshot) keepSnapshot(buf, i)
             val st = indexOf(buf, byteArrayOf(0x1b, 0x5c), i + m.size) // ESC \
             if (st < 0) { carry = buf.copyOfRange(i, buf.size); return }
             val jsonText = String(buf, i + m.size, st - (i + m.size), Charsets.UTF_8)
             handleRexMessage(jsonText)
             buf = buf.copyOfRange(st + 2, buf.size)
         }
+    }
+
+    private fun keepSnapshot(buf: ByteArray, len: Int) {
+        if (restoreSnapshot == null || snapshotTooBig || len <= 0) return
+        if (snapshot.size() + len > MAX_SNAPSHOT_BYTES) { snapshotTooBig = true; snapshot.reset(); return }
+        snapshot.write(buf, 0, len)
     }
 
     private fun handleRexMessage(text: String) {
@@ -213,10 +229,26 @@ class TerminalStream(
         }
     }
 
-    /** Replace the (unreadable) snapshot with a VT redraw of the current screen. */
+    /**
+     * Start the emulator from the snapshot if it can read it; otherwise replace the snapshot with
+     * a VT redraw of the current screen. Output arriving meanwhile is held and replayed in order.
+     */
     private fun seed(size: TermEvent.Resize) {
         seedPending = true
+        val snap = snapshot.toByteArray().takeIf { it.size > 10 && String(it, 0, 8, Charsets.ISO_8859_1) == "GHOSTSNP" }
+        snapshot.reset()
         scope.launch {
+            val restore = restoreSnapshot
+            if (snap != null && restore != null && runCatching { restore(snap) }.getOrDefault(false)) {
+                synchronized(heldDuringSeed) {
+                    _events.tryEmit(size)
+                    // The snapshot is exact, so everything after it applies in order.
+                    for (b in heldDuringSeed) _events.tryEmit(TermEvent.Output(b))
+                    heldDuringSeed.clear()
+                    seedPending = false
+                }
+                return@launch
+            }
             val vt = try {
                 control.blockCall(sessionId, blockId, "com.superlogical.terminal.format", buildJsonObject {
                     put("format", "vt")
@@ -242,6 +274,8 @@ class TerminalStream(
         }
         _events.tryEmit(TermEvent.Output(bytes))
     }
+
+    private companion object { const val MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024 }
 
     private fun indexOf(h: ByteArray, n: ByteArray, from: Int): Int {
         outer@ for (i in from..h.size - n.size) {

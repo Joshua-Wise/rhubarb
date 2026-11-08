@@ -212,7 +212,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     DisposableEffect(blockId) {
         app.visibleBlockId = blockId
         app.notifier.cancel(blockId)
-        val stream = TerminalStream(h.control, sessionId, blockId, app.scope)
+        val stream = TerminalStream(h.control, sessionId, blockId, app.scope, if (useGhostty) ghostty::restore else null)
         val pending = ByteArrayOutputStream()
         // Subscribe before the stream starts: the events flow has no replay, so anything
         // emitted before collection begins (the screen seed!) would be lost.

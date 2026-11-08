@@ -61,6 +61,23 @@ class GhosttyTerminal(private val scope: CoroutineScope) {
         ensure(); publishSoon()
     }
 
+    /**
+     * Replace the terminal with one restored from Rex's Ghostty snapshot: the Mac's exact screen,
+     * modes and scrollback. Returns false (keeping the current terminal) if it can't be decoded.
+     */
+    suspend fun restore(snapshot: ByteArray): Boolean {
+        if (!available || closed) return false
+        return withContext(dispatcher) {
+            val h = runCatching { bridge.nativeRestoreSnapshot(snapshot) }.getOrDefault(0L)
+            if (h == 0L || closed) { if (h != 0L) bridge.nativeDestroy(h); return@withContext false }
+            if (handle != 0L) bridge.nativeDestroy(handle)
+            handle = h
+            colors?.let { bridge.nativeSetDefaultColors(handle, it.fg, it.bg, it.cursor, it.palette) }
+            publishSoon()
+            true
+        }
+    }
+
     /** Output from the Mac's terminal. */
     fun write(bytes: ByteArray) = run {
         bridge.nativeWriteRemote(handle, bytes)

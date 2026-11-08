@@ -38,6 +38,16 @@ pub fn build(b: *std.Build) void {
         copy.addCopyFileToSource(lib.getEmittedBin(), b.fmt("../app/src/main/jniLibs/{s}/librexterm.so", .{abi}));
         jni_step.dependOn(&copy.step);
     }
+
+    // Host tool: decode a captured stream's snapshot (needs no NDK).
+    const host = b.graph.host;
+    const host_ghostty = b.dependency("ghostty", .{ .target = host, .optimize = optimize, .simd = false });
+    const tool_mod = b.createModule(.{ .root_source_file = b.path("tools/snapdecode.zig"), .target = host, .optimize = optimize });
+    tool_mod.addImport("ghostty-vt", host_ghostty.module("ghostty-vt"));
+    const tool = b.addExecutable(.{ .name = "snapdecode", .root_module = tool_mod });
+    const run = b.addRunArtifact(tool);
+    if (b.option([]const u8, "snap", "Captured stream file")) |p| run.addArg(p);
+    b.step("snapdecode", "Decode a captured stream's GHOSTSNP snapshot").dependOn(&run.step);
 }
 
 fn buildLibrary(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.lang.Optimize, ndk_home: []const u8) *std.Build.Step.Compile {
