@@ -78,7 +78,10 @@ class WatchService : Service() {
 /** Handles the notification "Reply" action: types the text plus Enter into the terminal. */
 class ReplyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val text = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(Notifier.KEY_REPLY)?.toString() ?: return
+        // Allow/Deny send their keys as-is; a typed reply gets Enter.
+        val text = intent.getStringExtra(Notifier.EXTRA_KEYS)
+            ?: RemoteInput.getResultsFromIntent(intent)?.getCharSequence(Notifier.KEY_REPLY)?.toString()?.plus("\r")
+            ?: return
         val sid = intent.getStringExtra(Notifier.EXTRA_SESSION) ?: return
         val bid = intent.getStringExtra(Notifier.EXTRA_BLOCK) ?: return
         val app = context.applicationContext as RexApp
@@ -86,7 +89,7 @@ class ReplyReceiver : BroadcastReceiver() {
         app.scope.launch {
             val hub = app.acquire()
             try {
-                hub?.write(sid, bid, text + "\r")
+                hub?.write(sid, bid, text)
                 app.notifier.cancel(bid)
             } catch (_: Exception) {
             } finally {

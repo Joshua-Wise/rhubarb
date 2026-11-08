@@ -35,6 +35,7 @@ class Notifier(private val ctx: Context) {
         const val EXTRA_SESSION = "session_id"
         const val EXTRA_BLOCK = "block_id"
         const val KEY_REPLY = "reply"
+        const val EXTRA_KEYS = "keys"
         const val ACTION_REPLY = "com.jwise.rexcompanion.REPLY"
     }
 
@@ -78,6 +79,17 @@ class Notifier(private val ctx: Context) {
         return NotificationCompat.Action.Builder(R.drawable.ic_stat_rex, "Reply", pi).addRemoteInput(ri).build()
     }
 
+    /** A one-tap action that types [keys] into the pane as-is (no Enter added). */
+    private fun keysAction(sessionId: String, blockId: String, label: String, keys: String): NotificationCompat.Action {
+        val i = Intent(ctx, ReplyReceiver::class.java).apply {
+            action = ACTION_REPLY
+            putExtra(EXTRA_SESSION, sessionId); putExtra(EXTRA_BLOCK, blockId); putExtra(EXTRA_KEYS, keys)
+            data = android.net.Uri.parse("rex://keys/$label/$blockId")
+        }
+        val pi = PendingIntent.getBroadcast(ctx, (blockId + label).hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rex, label, pi).build()
+    }
+
     private fun post(id: Int, b: NotificationCompat.Builder) {
         if (ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         NotificationManagerCompat.from(ctx).notify(id, b.build())
@@ -110,7 +122,7 @@ class Notifier(private val ctx: Context) {
                             "auth" -> "needs a password"
                             else -> "is waiting for you"
                         }
-                        post(notifId(blockId, 1), NotificationCompat.Builder(ctx, CH_ATTENTION)
+                        val b = NotificationCompat.Builder(ctx, CH_ATTENTION)
                             .setSmallIcon(R.drawable.ic_stat_rex)
                             .setContentTitle("${pretty(who)} $what")
                             .setContentText(msg.ifBlank { where })
@@ -119,8 +131,17 @@ class Notifier(private val ctx: Context) {
                             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                             .setPriority(NotificationCompat.PRIORITY_HIGH)
                             .setContentIntent(openIntent(sessionId, blockId))
-                            .addAction(replyAction(sessionId, blockId))
-                            .setAutoCancel(true))
+                            .setAutoCancel(true)
+                        // Claude Code's permission menu: "1" picks "Yes"; Esc declines (the
+                        // option numbers for "No" vary, Esc always means no).
+                        val claudePermission = rec["kind"]?.jsonPrimitive?.contentOrNull == "permission" &&
+                            who.contains("claude", ignoreCase = true)
+                        if (claudePermission) {
+                            b.addAction(keysAction(sessionId, blockId, "Allow", "1"))
+                            b.addAction(keysAction(sessionId, blockId, "Deny", "\u001b"))
+                        }
+                        b.addAction(replyAction(sessionId, blockId))
+                        post(notifId(blockId, 1), b)
                     }
                     else -> {
                         if (prev == "blocked") cancel(blockId)
