@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tailscale MagicDNS names get real HTTPS certs, so cleartext stays off except for
+     tailnet IPs/hosts users may type with ws:// (traffic is still WireGuard-encrypted). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ts.net</domain>
+    </domain-config>
+</network-security-config>

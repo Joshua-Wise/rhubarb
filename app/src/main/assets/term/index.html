@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="stylesheet" href="vendor/xterm.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #10120f; overflow: hidden; }
+  #scroller { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+  #sizer { position: relative; overflow: hidden; }
+  #term { position: absolute; left: 0; top: 0; padding: 4px; transform-origin: 0 0; }
+  .xterm .xterm-viewport { overflow-y: hidden !important; }
+  .xterm-helper-textarea { display: none !important; }
+</style>
+</head>
+<body>
+<div id="scroller"><div id="sizer"><div id="term"></div></div></div>
+<script src="vendor/xterm.js"></script>
+<script>
+(function () {
+  const bridge = window.Android || { onData: function () {}, onReady: function () {} };
+  let cols = 80, rows = 24, zoom = 1.0, fontFamily = 'monospace';
+
+  const term = new Terminal({
+    cols, rows,
+    fontFamily, fontSize: 12,
+    scrollback: 5000,
+    allowProposedApi: true,
+    convertEol: false,
+    cursorBlink: false,
+    disableStdin: true,          // typing comes from the native input bar
+    theme: { background: '#10120f', foreground: '#e6e6e1', cursor: '#e6e6e1' },
+  });
+  // The WebView can load before it is laid out (innerWidth 0). Opening xterm then measures a
+  // 0px cell and nothing ever renders, so wait for a real size. Writes before open are buffered.
+  let opened = false;
+  function openWhenSized() {
+    if (opened) return;
+    if (window.innerWidth > 0 && window.innerHeight > 0) {
+      term.open(document.getElementById('term'));
+      opened = true;
+      // xterm finishes re-layout asynchronously after font/size changes; rescale whenever the
+      // terminal's unscaled size changes (CSS transforms don't affect what this observes).
+      if (window.ResizeObserver) new ResizeObserver(function () { applyScale(); }).observe(document.getElementById('term'));
+      fit();
+      bridge.onLog && bridge.onLog('opened ' + window.innerWidth + 'x' + window.innerHeight);
+    } else {
+      if (!openWhenSized.reported) { openWhenSized.reported = true; bridge.onLog && bridge.onLog('waiting for size ' + window.innerWidth + 'x' + window.innerHeight); }
+      setTimeout(openWhenSized, 50);
+    }
+  }
+  window.addEventListener('error', function (e) { bridge.onLog && bridge.onLog('js error: ' + e.message); });
+
+  // Measure a monospace cell so we can fit `cols` into the screen width.
+  function charRatio() {
+    const c = document.createElement('canvas').getContext('2d');
+    c.font = '100px ' + fontFamily;
+    return c.measureText('MMMMMMMMMM').width / 1000;
+  }
+  const ratio = charRatio();
+
+  // Always lay the terminal out at a real, integer font size, then scale the whole drawing to
+  // the screen width. Asking xterm for tiny fractional fonts (166 cols on a phone ~ 4.4px) makes
+  // Android's font metrics disagree with xterm's and glyphs overlap.
+  const BASE_FONT = 12;
+  function fit() {
+    if (!opened || window.innerWidth <= 0) { term.resize(cols, rows); return; }
+    if (term.options.fontSize !== BASE_FONT) term.options.fontSize = BASE_FONT;
+    term.resize(cols, rows);
+    requestAnimationFrame(applyScale);
+  }
+  let lastKey = '';
+  term.onRender(function () { applyScale(); });
+  function applyScale() {
+    const el = document.getElementById('term');
+    const scr = el.querySelector('.xterm-screen');
+    const natW = Math.max(el.scrollWidth, (scr ? scr.offsetWidth : 0) + 8);
+    const natH = Math.max(el.scrollHeight, (scr ? scr.offsetHeight : 0) + 8);
+    if (!natW) return;
+    const avail = window.innerWidth;
+    const key = natW + 'x' + natH + '@' + avail + '*' + zoom;
+    if (key === lastKey) return;
+    lastKey = key;
+    const s = Math.min(1, avail / natW) * zoom;
+    el.style.transform = 'scale(' + s + ')';
+    const sizer = document.getElementById('sizer');
+    sizer.style.width = Math.ceil(natW * s) + 'px';
+    sizer.style.height = Math.ceil(natH * s) + 'px';
+  }
+
+  // Phone-sized grid for "fit to phone" mode, at a readable font size.
+  function phoneGrid(fontSize) {
+    const cw = fontSize * ratio, ch = fontSize * 1.2;
+    return { cols: Math.max(20, Math.floor((window.innerWidth - 8) / cw)),
+             rows: Math.max(8, Math.floor((window.innerHeight - 8) / ch)),
+             cw: Math.round(cw * devicePixelRatio), ch: Math.round(ch * devicePixelRatio) };
+  }
+
+  function b64ToBytes(b64) {
+    const bin = atob(b64); const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  // Programs often enable mouse reporting; taps would turn into clicks. Drop those reports.
+  const mouseRe = /\x1b\[<\d+;\d+;\d+[Mm]|\x1b\[M[\s\S]{3}/g;
+  term.onData(function (d) {
+    const clean = d.replace(mouseRe, '');
+    if (clean) bridge.onData(clean);
+  });
+  term.onBinary(function () { /* mouse in X10 mode; ignore */ });
+
+  window.rex = {
+    reset: function () { term.reset(); term.clear(); },
+    write: function (b64) { term.write(b64ToBytes(b64)); },
+    resize: function (c, r) { cols = c; rows = r; fit(); },
+    zoom: function (z) { zoom = z; fit(); },
+    phoneGrid: function (fs) { return JSON.stringify(phoneGrid(fs)); },
+    theme: function (t) {
+      const th = Object.assign({}, term.options.theme);
+      const hex = (v) => v ? (v[0] === '#' ? v : '#' + v) : undefined;
+      if (t.foreground) th.foreground = hex(t.foreground);
+      if (t.background) { th.background = hex(t.background); document.body.style.background = th.background; }
+      if (t.cursor) th.cursor = hex(t.cursor);
+      const names = ['black','red','green','yellow','blue','magenta','cyan','white',
+        'brightBlack','brightRed','brightGreen','brightYellow','brightBlue','brightMagenta','brightCyan','brightWhite'];
+      (t.palette || []).forEach(function (p) {
+        const [i, v] = p.split('='); const n = names[parseInt(i, 10)];
+        if (n) th[n] = hex(v);
+      });
+      term.options.theme = th;
+    },
+    scrollToBottom: function () {
+      term.scrollToBottom();
+      const s = document.getElementById('scroller'); s.scrollTop = s.scrollHeight;
+    },
+  };
+  // ---- touch: tap opens the keyboard; vertical drag scrolls ------------------------------
+  // Full-screen programs (Claude Code, vim, less) keep their own history, so a drag becomes
+  // mouse-wheel events the program scrolls itself with (what Rex's own apps do). In a plain
+  // shell, the drag scrolls this view's local scrollback instead.
+  const scroller = document.getElementById('scroller');
+  let tStartX = 0, tStartY = 0, tLastY = 0, tMode = null, tAccum = 0, tMoved = false;
+  // Lines scrolled per row of finger travel, and fling (momentum) state.
+  const SCROLL_GAIN = 2;
+  let vel = 0, lastMoveT = 0, flingRaf = 0, lastPt = { x: 0, y: 0 };
+  function scrollByLines(n, x, y) {
+    if (!n) return;
+    const cs = cellSize();
+    if (programScrolls()) {
+      const r = scroller.getBoundingClientRect();
+      const col = Math.max(0, Math.min(cols - 1, Math.floor((x - r.left + scroller.scrollLeft) / cs.w)));
+      const row = Math.max(0, Math.min(rows - 1, Math.floor((y - r.top + scroller.scrollTop) / cs.h)));
+      bridge.onWheel && bridge.onWheel(n, col, row);
+    } else {
+      term.scrollLines(n);
+    }
+  }
+  // Pixels of finger travel -> whole lines, carrying the remainder.
+  function feedPixels(px, x, y) {
+    tAccum += px;
+    const per = cellSize().h / SCROLL_GAIN;
+    const n = Math.trunc(tAccum / per);
+    if (n) { tAccum -= n * per; scrollByLines(n, x, y); }
+  }
+  function programScrolls() {
+    return term.buffer.active.type === 'alternate' || term.modes.mouseTrackingMode !== 'none';
+  }
+  function cellSize() {
+    const sizer = document.getElementById('sizer');
+    return { w: (sizer.offsetWidth || 1) / cols, h: (sizer.offsetHeight || 1) / rows };
+  }
+  scroller.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) { tMode = 'multi'; return; }
+    const t = e.touches[0];
+    tStartX = t.clientX; tStartY = tLastY = t.clientY; tMode = null; tAccum = 0; tMoved = false;
+    if (flingRaf) { cancelAnimationFrame(flingRaf); flingRaf = 0; tMoved = true; } // touch stops a fling
+    vel = 0; lastMoveT = performance.now();
+  }, { passive: true });
+  scroller.addEventListener('touchmove', function (e) {
+    if (tMode === 'multi' || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - tStartX, dy = t.clientY - tStartY;
+    if (!tMode) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      tMoved = true;
+      tMode = Math.abs(dy) >= Math.abs(dx) ? 'v' : 'h';
+    }
+    if (tMode !== 'v') return; // horizontal: let the page pan natively when zoomed in
+    // When zoomed in so the terminal is taller than the screen, pan natively until the edge.
+    const step = tLastY - t.clientY; // finger up => positive => scroll toward newer output
+    const canPan = step > 0 ? scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1 : scroller.scrollTop > 0;
+    if (canPan) { tLastY = t.clientY; return; }
+    e.preventDefault();
+    const now = performance.now(), dt = Math.max(1, now - lastMoveT);
+    vel = 0.8 * (step / dt) + 0.2 * vel; // px per ms, smoothed
+    lastMoveT = now; tLastY = t.clientY; lastPt = { x: t.clientX, y: t.clientY };
+    feedPixels(step, t.clientX, t.clientY);
+  }, { passive: false });
+  scroller.addEventListener('touchend', function () {
+    if (!tMoved && tMode !== 'multi') { bridge.onTap && bridge.onTap(); return; }
+    // Fling: keep scrolling with decaying velocity if the finger was moving when lifted.
+    if (tMode === 'v' && Math.abs(vel) > 0.3 && performance.now() - lastMoveT < 80) {
+      let prev = performance.now();
+      const tick = function (now) {
+        const dt = now - prev; prev = now;
+        vel *= Math.pow(0.995, dt);           // ~ friction
+        if (Math.abs(vel) < 0.05) { flingRaf = 0; return; }
+        feedPixels(vel * dt, lastPt.x, lastPt.y);
+        flingRaf = requestAnimationFrame(tick);
+      };
+      flingRaf = requestAnimationFrame(tick);
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', function () {
+    openWhenSized(); fit();
+    // The keyboard opening shrinks the view; keep the prompt (bottom) visible.
+    requestAnimationFrame(function () { scroller.scrollTop = scroller.scrollHeight; });
+  });
+  openWhenSized();
+  bridge.onReady();
+})();
+</script>
+</body>
+</html>
