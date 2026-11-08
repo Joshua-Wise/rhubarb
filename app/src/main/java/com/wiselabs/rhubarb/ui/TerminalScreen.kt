@@ -3,7 +3,14 @@ package com.wiselabs.rhubarb.ui
 import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import com.wiselabs.rhubarb.rex.RexUpload
+import kotlinx.coroutines.Job
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.compose.foundation.horizontalScroll
@@ -162,8 +169,36 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         else { send(s); ctrl = false }
     }
 
+    // Images sent to the Mac (Rex types their paths into this pane when they arrive).
+    var upload by remember { mutableStateOf<RexUpload.Progress?>(null) }
+    var uploadJob by remember { mutableStateOf<Job?>(null) }
+    fun sendImages(uris: List<Pair<Uri, String?>>) {
+        if (uris.isEmpty() || uploadJob?.isActive == true) return
+        upload = RexUpload.Progress.Sending(0, uris.size, 0f)
+        uploadJob = app.scope.launch {
+            try {
+                val items = withContext(Dispatchers.IO) { uris.map { (u, mime) -> RexUpload.describe(ctx, u, mime) } }
+                RexUpload.send(ctx, h.control, sessionId, blockId, items) { upload = it }
+                delay(1500)
+                upload = null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                upload = null; throw e
+            } catch (e: Exception) {
+                val code = (e as? com.wiselabs.rhubarb.rex.RexError)?.code
+                upload = RexUpload.Progress.Failed(when (code) {
+                    "method_not_found" -> "This Rex server is too old to receive images; update Rex"
+                    "too_large" -> e.message ?: "Too large"
+                    else -> e.message ?: "Couldn't send the image"
+                })
+            }
+        }
+    }
+    val pickImages = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+        sendImages(uris.map { it to null })
+    }
+
     val ready = remember { CompletableDeferred<Unit>() }
-    val inputView = remember { TermInputView(ctx) { s -> key(s) } }
+    val inputView = remember { TermInputView(ctx, send = { s -> key(s) }, onImage = { u, mime -> sendImages(listOf(u to mime)) }) }
     var rx by remember { mutableStateOf(0L) }
     var jsLog by remember { mutableStateOf<String?>(null) }
     val webView = remember {
@@ -284,6 +319,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 actions = {
                     if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
                     if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
+                    IconButton(onClick = { pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+                        Icon(Icons.Default.AddPhotoAlternate, "Send image")
+                    }
                     IconButton(onClick = { jumpToLive() }) { Icon(Icons.Default.VerticalAlignBottom, "Scroll to bottom") }
                 },
             )
@@ -303,6 +341,10 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 }
                 // Invisible owner of the soft keyboard; tapping the terminal focuses it.
                 AndroidView(factory = { inputView }, modifier = Modifier.size(1.dp))
+                upload?.let { p ->
+                    UploadPill(p, Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                        onCancel = { uploadJob?.cancel(); upload = null })
+                }
             }
             KeyBar(
                 ctrl, onCtrl = { ctrl = !ctrl }, onKey = ::key,
@@ -311,7 +353,11 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 onCompose = { compose = !compose; if (!compose) inputView.showKeyboard() },
                 onPaste = {
                     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    cm.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()?.let { text ->
+                    val clip = cm.primaryClip
+                    val imageUri = clip?.getItemAt(0)?.uri?.takeIf { clip.description.hasMimeType("image/*") }
+                    if (imageUri != null) {
+                        sendImages(listOf(imageUri to clip.description.getMimeType(0)))
+                    } else clip?.getItemAt(0)?.coerceToText(ctx)?.toString()?.let { text ->
                         inputs.trySend {
                             h.control.call("block.event", buildJsonObject {
                                 put("session_id", sessionId); put("block_id", blockId)

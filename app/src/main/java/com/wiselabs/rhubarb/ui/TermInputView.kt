@@ -8,6 +8,8 @@ import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
+import androidx.core.view.inputmethod.EditorInfoCompat
+import androidx.core.view.inputmethod.InputConnectionCompat
 
 /**
  * An invisible view that owns the soft keyboard and turns everything typed into terminal
@@ -17,7 +19,12 @@ import android.view.inputmethod.InputMethodManager
  * from autocorrecting or holding text in a composing region. Some keyboards compose anyway, so
  * composing text is diffed and sent as it changes.
  */
-class TermInputView(context: Context, private val send: (String) -> Unit) : View(context) {
+class TermInputView(
+    context: Context,
+    private val send: (String) -> Unit,
+    /** An image the keyboard inserted (e.g. from Gboard's clipboard), already copied to a local file. */
+    private val onImage: ((android.net.Uri, String) -> Unit)? = null,
+) : View(context) {
     init {
         isFocusable = true
         isFocusableInTouchMode = true
@@ -41,7 +48,7 @@ class TermInputView(context: Context, private val send: (String) -> Unit) : View
             InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or
             EditorInfo.IME_FLAG_NO_FULLSCREEN or EditorInfo.IME_ACTION_NONE
-        return object : BaseInputConnection(this, false) {
+        val ic = object : BaseInputConnection(this, false) {
             private var composing = ""
 
             override fun commitText(text: CharSequence, newCursorPosition: Int): Boolean {
@@ -75,6 +82,23 @@ class TermInputView(context: Context, private val send: (String) -> Unit) : View
 
             private fun erase(n: Int) { repeat(n.coerceAtLeast(0)) { send("\u007f") } }
             private fun emit(s: String) { if (s.isNotEmpty()) send(s.replace("\n", "\r")) }
+        }
+        val take = onImage ?: return ic
+        EditorInfoCompat.setContentMimeTypes(outAttrs, arrayOf("image/*"))
+        return InputConnectionCompat.createWrapper(ic, outAttrs) { info, flags, _ ->
+            val mime = info.description.getMimeType(0) ?: "image/png"
+            if (flags and InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION != 0) {
+                runCatching { info.requestPermission() }.onFailure { return@createWrapper false }
+            }
+            // Copy it now: the keyboard's permission to read it ends with this connection.
+            val copied = runCatching {
+                val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "png"
+                val f = java.io.File(context.cacheDir, "keyboard-image-${System.currentTimeMillis()}.$ext")
+                context.contentResolver.openInputStream(info.contentUri)!!.use { i -> f.outputStream().use { i.copyTo(it) } }
+                f
+            }.getOrNull()
+            info.releasePermission()
+            if (copied == null) false else { take(android.net.Uri.fromFile(copied), mime); true }
         }
     }
 

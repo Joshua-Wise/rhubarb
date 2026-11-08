@@ -17,13 +17,18 @@ unofficial client built on the API that every Rex server documents about itself 
   with a phone-friendly key bar (Esc, Tab, arrows, ^C, 1/2/3, y/n…), paste, and long-press to
   copy. Panes fit the phone while open and get the Mac's size back when you leave
   (Settings → Terminal → Fit panes to phone turns this off and shows the Mac's grid with zoom).
+- **Send images to the Mac**: the image button in a pane (or Paste with an image copied, or an
+  image from the keyboard) sends pictures to the pane's machine. Rex saves them and types their
+  paths into the terminal, so you can hand Claude Code a screenshot. Needs a Rex server with
+  API revision 11.
 
 ## How it connects
 
 ```
 Pixel ──Tailscale (WireGuard)──▶ <mac>-rex.<tailnet>.ts.net (HTTPS, built into the Rex server)
          ├─ wss /api/control   JSON: requests, responses, events  (rex.control.v1)
-         └─ wss /api/data      binary: one terminal's output stream (rex.data.terminal.v1)
+         ├─ wss /api/data      binary: one terminal's output stream (rex.data.terminal.v1)
+         └─ wss /api/data      binary: an image being sent to the Mac (rex.data.bytes.v1)
 ```
 
 The Rex server runs its own Tailscale node. It accepts connections from devices signed in to
