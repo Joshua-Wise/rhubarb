@@ -55,6 +55,9 @@ fun TerminalCanvas(
     // Rex Companion: with fitSnapshotToCanvas, scale to the canvas width and anchor the bottom
     // rows (the prompt) when the grid is taller than the canvas, instead of fitting both ways.
     fitWidth: Boolean = false,
+    // Rex Companion: long-press always selects text on the phone, even when the program reports
+    // mouse drags (Claude Code does), since a drag sent to the Mac would select there instead.
+    clientSelectionOnly: Boolean = false,
     enableGestures: Boolean = true,
     cursorColor: Color = Color.White.copy(alpha = 0.28f),
     cursorTextColor: Color? = null,
@@ -324,7 +327,7 @@ fun TerminalCanvas(
                                     if (dragMode == DragMode.None) {
                                         val s = currentSnapshot.value
                                         val downPos = toSnapshotSpace(down.position, s)
-                                        if (s.appHandlesSelectionDrag) {
+                                        if (s.appHandlesSelectionDrag && !clientSelectionOnly) {
                                             currentOnAppSelectionDrag.value(TerminalMouseAction.Press, downPos.x, downPos.y)
                                             currentHaptics.value.performHapticFeedback(
                                                 HapticFeedbackType.LongPress,

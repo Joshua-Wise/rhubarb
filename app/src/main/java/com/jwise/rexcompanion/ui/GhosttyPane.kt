@@ -8,7 +8,26 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.jwise.rexcompanion.ghostty.TerminalSelection
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,6 +62,9 @@ fun GhosttyPane(
 ) {
     val snapshot by ghostty.snapshot.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var selection by remember { mutableStateOf<TerminalSelection?>(null) }
+    var selectedText by remember { mutableStateOf<String?>(null) }
     val bg = Color(android.graphics.Color.parseColor("#$background"))
     BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         val snap = snapshot
@@ -58,12 +80,47 @@ fun GhosttyPane(
                 fontSizeSp = 13f,
                 fitSnapshotToCanvas = fitToWidth,
                 fitWidth = true,
+                clientSelectionOnly = true,
+                selection = selection,
+                onSelectionChange = { selection = it },
+                onSelectionChanged = { selectedText = it?.text },
                 onTap = onTap,
                 onScroll = { delta, x, y ->
                     scope.launch { ghostty.scroll(delta, x, y)?.let(onWheelInput) }
                 },
                 onResize = { cols, rows, cw, ch, _, _ -> onCanvasGrid(intArrayOf(cols, rows, cw, ch)) },
             )
+        }
+        if (selection != null) {
+            Surface(
+                Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shadowElevation = 6.dp,
+            ) {
+                Row(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        val n = snap.codepoints.size
+                        if (n > 0) selection = TerminalSelection(0, n - 1)
+                    }) {
+                        Icon(Icons.Filled.SelectAll, null, Modifier.padding(end = 6.dp)); Text("All")
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            val text = selectedText?.trimEnd()
+                            if (!text.isNullOrEmpty()) {
+                                val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText("Terminal", text))
+                            }
+                            selection = null
+                        },
+                        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                    ) {
+                        Icon(Icons.Filled.ContentCopy, null, Modifier.padding(end = 6.dp)); Text("Copy")
+                    }
+                    TextButton(onClick = { selection = null }) { Text("Cancel") }
+                }
+            }
         }
     }
 }
