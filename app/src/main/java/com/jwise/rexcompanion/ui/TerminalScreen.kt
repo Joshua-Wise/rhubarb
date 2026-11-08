@@ -125,6 +125,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     fun jumpToLive() = jumpToLiveRef[0]()
     var zoom by remember { mutableFloatStateOf(1f) }
     var owned by remember { mutableStateOf(false) }
+    val autoFit by app.settings.fitToPhone.collectAsState()
+    var macSize by remember { mutableStateOf(false) } // chosen from the menu for this visit
     var menu by remember { mutableStateOf(false) }
     var gridSize by remember { mutableStateOf("") }
 
@@ -246,6 +248,20 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         }
     }
 
+    suspend fun phoneGrid(): PhoneGrid? =
+        if (useGhostty) canvasGrid?.let { g -> PhoneGrid(g[0], g[1], g[2], g[3]) } else xtermPhoneGrid(webView)
+
+    // Fit to phone on open (and again when the canvas changes size, e.g. the keyboard opens),
+    // unless turned off in Settings or the user picked "Show at Mac size" for this pane.
+    LaunchedEffect(canvasGrid?.toList(), autoFit, macSize) {
+        if (!autoFit || macSize) return@LaunchedEffect
+        delay(300)
+        repeat(10) {
+            if (takeOver(h, sessionId, blockId) { phoneGrid() }) { owned = true; return@LaunchedEffect }
+            delay(500)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -272,14 +288,12 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text(if (owned) "Give size back to Mac" else "Fit terminal to phone") },
+                            text = { Text(if (owned) "Show at Mac size" else "Fit to phone") },
                             onClick = {
                                 menu = false
                                 scope.launch {
-                                    if (owned) { release(h, sessionId, blockId); owned = false }
-                                    else owned = takeOver(h, sessionId, blockId) {
-                                        if (useGhostty) canvasGrid?.let { g -> PhoneGrid(g[0], g[1], g[2], g[3]) } else xtermPhoneGrid(webView)
-                                    }
+                                    if (owned) { macSize = true; release(h, sessionId, blockId); owned = false }
+                                    else { macSize = false; owned = takeOver(h, sessionId, blockId) { phoneGrid() } }
                                 }
                             },
                         )

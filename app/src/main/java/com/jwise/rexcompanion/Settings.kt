@@ -55,6 +55,9 @@ class Settings(ctx: Context) {
     val renderer: StateFlow<Renderer> = _renderer
     fun setRenderer(v: Renderer) { p.edit().putString("renderer", v.name).apply(); _renderer.value = v }
 
+    private val _fitToPhone = flow(p.getBoolean("fit_to_phone", true))
+    val fitToPhone: StateFlow<Boolean> = _fitToPhone
+    fun setFitToPhone(v: Boolean) { p.edit().putBoolean("fit_to_phone", v).apply(); _fitToPhone.value = v }
     private val _notifyPrograms = flow(p.getBoolean("notify_programs", true))
     val notifyPrograms: StateFlow<Boolean> = _notifyPrograms
     fun setNotifyPrograms(v: Boolean) { p.edit().putBoolean("notify_programs", v).apply(); _notifyPrograms.value = v }
