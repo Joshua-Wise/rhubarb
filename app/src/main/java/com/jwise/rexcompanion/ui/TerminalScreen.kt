@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.DropdownMenu
@@ -126,8 +127,6 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     var zoom by remember { mutableFloatStateOf(1f) }
     var owned by remember { mutableStateOf(false) }
     val autoFit by app.settings.fitToPhone.collectAsState()
-    var macSize by remember { mutableStateOf(false) } // chosen from the menu for this visit
-    var menu by remember { mutableStateOf(false) }
     var gridSize by remember { mutableStateOf("") }
 
     // Serialize writes: the server runs block methods concurrently, so keystrokes must be
@@ -252,9 +251,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         if (useGhostty) canvasGrid?.let { g -> PhoneGrid(g[0], g[1], g[2], g[3]) } else xtermPhoneGrid(webView)
 
     // Fit to phone on open (and again when the canvas changes size, e.g. the keyboard opens),
-    // unless turned off in Settings or the user picked "Show at Mac size" for this pane.
-    LaunchedEffect(canvasGrid?.toList(), autoFit, macSize) {
-        if (!autoFit || macSize) return@LaunchedEffect
+    // unless turned off in Settings.
+    LaunchedEffect(canvasGrid?.toList(), autoFit) {
+        if (!autoFit) return@LaunchedEffect
         delay(300)
         repeat(10) {
             if (takeOver(h, sessionId, blockId) { phoneGrid() }) { owned = true; return@LaunchedEffect }
@@ -285,20 +284,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 actions = {
                     if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
                     if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "More") }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(if (owned) "Show at Mac size" else "Fit to phone") },
-                            onClick = {
-                                menu = false
-                                scope.launch {
-                                    if (owned) { macSize = true; release(h, sessionId, blockId); owned = false }
-                                    else { macSize = false; owned = takeOver(h, sessionId, blockId) { phoneGrid() } }
-                                }
-                            },
-                        )
-                        DropdownMenuItem(text = { Text("Scroll to bottom") }, onClick = { menu = false; js("rex.scrollToBottom()") })
-                    }
+                    IconButton(onClick = { jumpToLive() }) { Icon(Icons.Default.VerticalAlignBottom, "Scroll to bottom") }
                 },
             )
         },

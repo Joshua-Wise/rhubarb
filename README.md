@@ -13,9 +13,10 @@ unofficial client built on the API that every Rex server documents about itself 
   one goes `blocked` (permission, question, or password), you get a high-priority notification
   with a **Reply** action that types into the terminal. You can also be told when work goes
   `working` → `done`, and you get OSC 9/777 desktop notifications from programs.
-- **Live terminal**: watch any pane in real time (xterm.js), type with a phone-friendly key
-  bar (Esc, Tab, arrows, ^C, 1/2/3, y/n…), paste, and zoom. **Fit terminal to phone** claims
-  the pane and resizes it to the phone. **Give size back to Mac** returns it.
+- **Live terminal**: watch any pane in real time (Ghostty, or xterm.js as a fallback), type
+  with a phone-friendly key bar (Esc, Tab, arrows, ^C, 1/2/3, y/n…), paste, and long-press to
+  copy. Panes fit the phone while open and get the Mac's size back when you leave
+  (Settings → Terminal → Fit panes to phone turns this off and shows the Mac's grid with zoom).
 
 ## How it connects
 
