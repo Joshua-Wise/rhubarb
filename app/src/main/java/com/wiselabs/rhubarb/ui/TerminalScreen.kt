@@ -125,7 +125,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     var canvasGrid by remember { mutableStateOf<IntArray?>(null) } // cols, rows, cellW, cellH at the canvas's font
 
     var status by remember { mutableStateOf<String?>("connecting…") }
-    var ctrl by remember { mutableStateOf(false) }
+    val mods = remember { KeyMods() }
     var input by remember { mutableStateOf("") }
     var compose by remember { mutableStateOf(false) }
     // Plain holder (not Compose state): assigning state during composition would loop.
@@ -165,8 +165,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     }
     fun key(s: String) {
         jumpToLive()
-        if (ctrl && s.length == 1 && s[0].isLetter()) { send(((s[0].uppercaseChar().code - 64).toChar()).toString()); ctrl = false }
-        else { send(s); ctrl = false }
+        send(mods.apply(s))
     }
 
     // Images sent to the Mac (Rex types their paths into this pane when they arrive).
@@ -347,7 +346,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 }
             }
             KeyBar(
-                ctrl, onCtrl = { ctrl = !ctrl }, onKey = ::key,
+                mods, onKey = ::key,
                 compose = compose,
                 onKeyboard = { compose = false; inputView.showKeyboard() },
                 onCompose = { compose = !compose; if (!compose) inputView.showKeyboard() },

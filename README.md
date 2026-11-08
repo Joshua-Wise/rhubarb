@@ -14,7 +14,8 @@ unofficial client built on the API that every Rex server documents about itself 
   with a **Reply** action that types into the terminal. You can also be told when work goes
   `working` → `done`, and you get OSC 9/777 desktop notifications from programs.
 - **Live terminal**: watch any pane in real time (Ghostty, or xterm.js as a fallback), type
-  with a phone-friendly key bar (Esc, Tab, arrows, ^C, 1/2/3, y/n…), paste, and long-press to
+  with a phone-friendly key bar (Esc, sticky Ctrl/Alt/Shift, Tab, arrows that repeat, hold
+  Ctrl for common chords, hold Enter for a new line that isn't sent), paste, and long-press to
   copy. Panes fit the phone while open and get the Mac's size back when you leave
   (Settings → Terminal → Fit panes to phone turns this off and shows the Mac's grid with zoom).
 - **Send images to the Mac**: the image button in a pane (or Paste with an image copied, or an
