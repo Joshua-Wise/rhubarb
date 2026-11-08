@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,8 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.Settings
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.Settings
 
 /** The hosts this phone knows, with the connected one first. Reads the server's own list too. */
 @Composable

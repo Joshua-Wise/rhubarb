@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "RexCompanion"
+rootProject.name = "Rhubarb"
 include(":app")

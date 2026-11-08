@@ -1,5 +1,5 @@
 // Adapted from chuchu (https://github.com/jossephus/chuchu, MIT; see native/LICENSE-chuchu).
-package com.jwise.rexcompanion.ghostty
+package com.wiselabs.rhubarb.ghostty
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures

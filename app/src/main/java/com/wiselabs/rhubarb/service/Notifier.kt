@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.service
+package com.wiselabs.rhubarb.service
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -10,10 +10,10 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
-import com.jwise.rexcompanion.MainActivity
-import com.jwise.rexcompanion.R
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.rex.RexHub
+import com.wiselabs.rhubarb.MainActivity
+import com.wiselabs.rhubarb.R
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.rex.RexHub
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -36,7 +36,7 @@ class Notifier(private val ctx: Context) {
         const val EXTRA_BLOCK = "block_id"
         const val KEY_REPLY = "reply"
         const val EXTRA_KEYS = "keys"
-        const val ACTION_REPLY = "com.jwise.rexcompanion.REPLY"
+        const val ACTION_REPLY = "com.wiselabs.rhubarb.REPLY"
     }
 
     private val lastState = ConcurrentHashMap<String, String>()
@@ -76,7 +76,7 @@ class Notifier(private val ctx: Context) {
         }
         val pi = PendingIntent.getBroadcast(ctx, blockId.hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
         val ri = RemoteInput.Builder(KEY_REPLY).setLabel("Type into terminal (Enter is added)").build()
-        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rex, "Reply", pi).addRemoteInput(ri).build()
+        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, "Reply", pi).addRemoteInput(ri).build()
     }
 
     /** A one-tap action that types [keys] into the pane as-is (no Enter added). */
@@ -87,7 +87,7 @@ class Notifier(private val ctx: Context) {
             data = android.net.Uri.parse("rex://keys/$label/$blockId")
         }
         val pi = PendingIntent.getBroadcast(ctx, (blockId + label).hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rex, label, pi).build()
+        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, label, pi).build()
     }
 
     private fun post(id: Int, b: NotificationCompat.Builder) {
@@ -123,7 +123,7 @@ class Notifier(private val ctx: Context) {
                             else -> "is waiting for you"
                         }
                         val b = NotificationCompat.Builder(ctx, CH_ATTENTION)
-                            .setSmallIcon(R.drawable.ic_stat_rex)
+                            .setSmallIcon(R.drawable.ic_stat_rhubarb)
                             .setContentTitle("${pretty(who)} $what")
                             .setContentText(msg.ifBlank { where })
                             .setSubText(where)
@@ -147,7 +147,7 @@ class Notifier(private val ctx: Context) {
                         if (prev == "blocked") cancel(blockId)
                         if (state == "done" && prev == "working" && app.notifyDone && !onScreen) {
                             post(notifId(blockId, 2), NotificationCompat.Builder(ctx, CH_DONE)
-                                .setSmallIcon(R.drawable.ic_stat_rex)
+                                .setSmallIcon(R.drawable.ic_stat_rhubarb)
                                 .setContentTitle("${pretty(who)} finished")
                                 .setContentText(msg.ifBlank { where })
                                 .setSubText(where)
@@ -162,7 +162,7 @@ class Notifier(private val ctx: Context) {
                 val title = payload?.get("title")?.jsonPrimitive?.contentOrNull.orEmpty()
                 val body = payload?.get("body")?.jsonPrimitive?.contentOrNull.orEmpty()
                 post(notifId(blockId, 3), NotificationCompat.Builder(ctx, CH_PROGRAM)
-                    .setSmallIcon(R.drawable.ic_stat_rex)
+                    .setSmallIcon(R.drawable.ic_stat_rhubarb)
                     .setContentTitle(title.ifBlank { hub.describe(blockId) })
                     .setContentText(body)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(body))

@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -27,7 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.jwise.rexcompanion.ghostty.TerminalSelection
+import com.wiselabs.rhubarb.ghostty.TerminalSelection
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,8 +36,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.jwise.rexcompanion.ghostty.GhosttyTerminal
-import com.jwise.rexcompanion.ghostty.TerminalCanvas
+import com.wiselabs.rhubarb.ghostty.GhosttyTerminal
+import com.wiselabs.rhubarb.ghostty.TerminalCanvas
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

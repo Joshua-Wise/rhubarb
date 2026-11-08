@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.rex
+package com.wiselabs.rhubarb.rex
 
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
@@ -54,7 +54,7 @@ sealed interface ConnState {
 class RexControl(
     val baseUrl: String,
     private val scope: CoroutineScope,
-    private val clientName: String = "Rex Companion",
+    private val clientName: String = "Rhubarb",
     /** The client's label, shown in Rex's client lists (e.g. "Pixel"). */
     private val clientLabel: () -> String? = { null },
     private val onConnected: suspend (RexControl, ConnState.Connected) -> Unit = { _, _ -> },
@@ -151,7 +151,7 @@ class RexControl(
                         put("kind", "app")
                         put("platform", "other") // "android" isn't a known platform value yet.
                         put("name", clientName)
-                        put("version", com.jwise.rexcompanion.BuildConfig.VERSION_NAME)
+                        put("version", com.wiselabs.rhubarb.BuildConfig.VERSION_NAME)
                         clientLabel()?.takeIf { it.isNotBlank() }?.let { put("label", it.take(40)) }
                     }
                 }

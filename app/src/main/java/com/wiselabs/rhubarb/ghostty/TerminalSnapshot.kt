@@ -1,5 +1,5 @@
 // Adapted from chuchu (https://github.com/jossephus/chuchu, MIT; see native/LICENSE-chuchu).
-package com.jwise.rexcompanion.ghostty
+package com.wiselabs.rhubarb.ghostty
 
 import android.graphics.Bitmap
 import android.util.Log

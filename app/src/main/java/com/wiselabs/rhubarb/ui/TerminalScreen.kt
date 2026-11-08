@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import android.annotation.SuppressLint
 import android.content.ClipboardManager
@@ -61,10 +61,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.rex.RexHub
-import com.jwise.rexcompanion.rex.TermEvent
-import com.jwise.rexcompanion.rex.TerminalStream
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.rex.RexHub
+import com.wiselabs.rhubarb.rex.TermEvent
+import com.wiselabs.rhubarb.rex.TerminalStream
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -112,9 +112,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     val dark = isDark()
     val termColors by app.settings.terminalColors.collectAsState()
     val palette = if (dark) TermDark else TermLight
-    val ghostty = remember { com.jwise.rexcompanion.ghostty.GhosttyTerminal(app.scope) }
+    val ghostty = remember { com.wiselabs.rhubarb.ghostty.GhosttyTerminal(app.scope) }
     // Chosen when the pane opens; switching renderers applies to the next pane opened.
-    val useGhostty = remember { app.settings.renderer.value == com.jwise.rexcompanion.Renderer.Ghostty && ghostty.available }
+    val useGhostty = remember { app.settings.renderer.value == com.wiselabs.rhubarb.Renderer.Ghostty && ghostty.available }
     var canvasGrid by remember { mutableStateOf<IntArray?>(null) } // cols, rows, cellW, cellH at the canvas's font
 
     var status by remember { mutableStateOf<String?>("connecting…") }
@@ -201,8 +201,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     var macTheme by remember { mutableStateOf<String?>(null) }
     // Apply the phone's palette (or the Mac's) whenever the theme or the choice changes.
     LaunchedEffect(dark, termColors, macTheme) {
-        if (useGhostty) ghostty.setColors(ghosttyColors(palette, macTheme.takeIf { termColors == com.jwise.rexcompanion.TerminalColors.Mac }))
-        if (termColors == com.jwise.rexcompanion.TerminalColors.App || macTheme == null) {
+        if (useGhostty) ghostty.setColors(ghosttyColors(palette, macTheme.takeIf { termColors == com.wiselabs.rhubarb.TerminalColors.Mac }))
+        if (termColors == com.wiselabs.rhubarb.TerminalColors.App || macTheme == null) {
             js("rex.theme(${palette.toJson()})")
             webView.setBackgroundColor(android.graphics.Color.parseColor("#" + palette.bg))
         } else js("rex.theme($macTheme)")
@@ -231,7 +231,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     is TermEvent.Output -> { rx += ev.bytes.size; if (useGhostty) ghostty.write(ev.bytes) else synchronized(pending) { pending.write(ev.bytes) } }
                     is TermEvent.Resize -> { gridSize = "${ev.cols}×${ev.rows}"; if (useGhostty) ghostty.resize(ev.cols, ev.rows) else js("rex.resize(${ev.cols}, ${ev.rows})") }
                     // The Mac's colors arrive in the stream; use them only if the user chose to.
-                    is TermEvent.Theme -> { macTheme = ev.json.toString(); if (app.settings.terminalColors.value == com.jwise.rexcompanion.TerminalColors.Mac) js("rex.theme($macTheme)") }
+                    is TermEvent.Theme -> { macTheme = ev.json.toString(); if (app.settings.terminalColors.value == com.wiselabs.rhubarb.TerminalColors.Mac) js("rex.theme($macTheme)") }
                     is TermEvent.ChildExited -> status = "program exited (${ev.code})"
                     is TermEvent.Status -> status = ev.text
                     TermEvent.Closed -> status = "closed"

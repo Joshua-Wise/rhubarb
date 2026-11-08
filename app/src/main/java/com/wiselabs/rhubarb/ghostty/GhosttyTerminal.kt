@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ghostty
+package com.wiselabs.rhubarb.ghostty
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExecutorCoroutineDispatcher

@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,9 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.rex.ConnState
-import com.jwise.rexcompanion.rex.RexControl
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.rex.ConnState
+import com.wiselabs.rhubarb.rex.RexControl
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -68,7 +68,7 @@ fun ServerScreen(onSaved: () -> Unit) {
                     busy = true; result = null
                     scope.launch {
                         // Test with a throwaway connection before saving.
-                        val c = RexControl(RexControl.normalizeBase(url), app.scope, "Rex Companion (setup)")
+                        val c = RexControl(RexControl.normalizeBase(url), app.scope, "Rhubarb (setup)")
                         c.start()
                         val st = withTimeoutOrNull(12_000) { c.state.first { it is ConnState.Connected || it is ConnState.Failed } }
                         result = when (st) {

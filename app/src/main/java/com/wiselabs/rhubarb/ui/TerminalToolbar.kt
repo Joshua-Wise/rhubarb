@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically

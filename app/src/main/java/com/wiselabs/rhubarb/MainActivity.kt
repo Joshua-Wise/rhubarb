@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion
+package com.wiselabs.rhubarb
 
 import android.Manifest
 import android.content.Intent
@@ -24,12 +24,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.jwise.rexcompanion.service.Notifier
-import com.jwise.rexcompanion.ui.HomeScreen
-import com.jwise.rexcompanion.ui.RexTheme
-import com.jwise.rexcompanion.ui.SettingsScreen
-import com.jwise.rexcompanion.ui.ServerScreen
-import com.jwise.rexcompanion.ui.TerminalScreen
+import com.wiselabs.rhubarb.service.Notifier
+import com.wiselabs.rhubarb.ui.HomeScreen
+import com.wiselabs.rhubarb.ui.RexTheme
+import com.wiselabs.rhubarb.ui.SettingsScreen
+import com.wiselabs.rhubarb.ui.ServerScreen
+import com.wiselabs.rhubarb.ui.TerminalScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {

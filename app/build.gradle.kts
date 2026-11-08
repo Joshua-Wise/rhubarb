@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.jwise.rexcompanion"
+    namespace = "com.wiselabs.rhubarb"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.jwise.rexcompanion"
+        applicationId = "com.wiselabs.rhubarb"
         minSdk = 28
         targetSdk = 37
-        versionCode = 17
-        versionName = "0.6.1"
+        versionCode = 18
+        versionName = "0.7.0"
     }
 
     buildTypes {

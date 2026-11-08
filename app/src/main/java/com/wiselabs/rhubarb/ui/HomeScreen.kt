@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -60,9 +60,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.rex.ConnState
-import com.jwise.rexcompanion.rex.TERMINAL
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.rex.ConnState
+import com.wiselabs.rhubarb.rex.TERMINAL
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 

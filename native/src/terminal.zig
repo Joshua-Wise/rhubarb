@@ -1,5 +1,5 @@
 // Adapted from chuchu (https://github.com/jossephus/chuchu, MIT, see LICENSE-chuchu):
-// zig-src/src/bridge/chuchu_snapshot.zig. Changes for Rex Companion: JNI class renamed,
+// zig-src/src/bridge/chuchu_snapshot.zig. Changes for Rhubarb: JNI class renamed,
 // PNG decoding removed, Kitty file/temp-file/shared-memory loading disabled, larger scrollback.
 const std = @import("std");
 const ghostty = @import("ghostty-vt");
@@ -453,7 +453,7 @@ fn appendPtyWrite(terminal: *ChuchuTerminal, bytes: []const u8) void {
 }
 
 fn chuchuDecodePng(alloc: std.mem.Allocator, data: []const u8) ghostty.sys.DecodeError!ghostty.sys.Image {
-    // Rex Companion links no image library; PNG-encoded Kitty images are rejected.
+    // Rhubarb links no image library; PNG-encoded Kitty images are rejected.
     _ = alloc;
     _ = data;
     return error.InvalidData;
@@ -529,7 +529,7 @@ fn adoptTerminal(io: std.Io, terminal: *ChuchuTerminal, inner: ghostty.Terminal,
     return chuchuHandleFromPtr(terminal);
 }
 
-/// Rex Companion: build a terminal from a Ghostty binary snapshot (the GHOSTSNP blob that starts
+/// Rhubarb: build a terminal from a Ghostty binary snapshot (the GHOSTSNP blob that starts
 /// Rex's terminal stream), so the phone opens on the Mac's exact screen, modes and scrollback.
 /// Returns 0 if the snapshot can't be decoded (e.g. a format version this build doesn't know);
 /// the caller then falls back to an empty terminal seeded another way.
@@ -594,18 +594,18 @@ fn jniNewStringUTF(env: *c.JNIEnv, s: [*:0]const u8) c.jstring {
     return env.*.*.NewStringUTF.?(env, s);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeVersion(env: *c.JNIEnv, clazz: c.jclass) callconv(.c) c.jstring {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeVersion(env: *c.JNIEnv, clazz: c.jclass) callconv(.c) c.jstring {
     _ = clazz;
     return jniNewStringUTF(env, "1");
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeCreate(env: *c.JNIEnv, thiz: c.jobject, cols: c.jint, rows: c.jint, max_scrollback: c.jint) callconv(.c) c.jlong {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeCreate(env: *c.JNIEnv, thiz: c.jobject, cols: c.jint, rows: c.jint, max_scrollback: c.jint) callconv(.c) c.jlong {
     _ = env;
     _ = thiz;
     return chuchu_create_terminal(cols, rows, max_scrollback);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeRestoreSnapshot(env: *c.JNIEnv, thiz: c.jobject, data: c.jbyteArray) callconv(.c) c.jlong {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeRestoreSnapshot(env: *c.JNIEnv, thiz: c.jobject, data: c.jbyteArray) callconv(.c) c.jlong {
     _ = thiz;
     if (data == null) return 0;
     const len = env.*.*.GetArrayLength.?(env, data);
@@ -617,13 +617,13 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeRestoreSnapsho
     return chuchu_restore_snapshot(@ptrCast(bytes), @intCast(len));
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeDestroy(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeDestroy(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) void {
     _ = env;
     _ = thiz;
     chuchu_destroy_terminal(handle);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeWriteRemote(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, data: c.jbyteArray) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeWriteRemote(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, data: c.jbyteArray) callconv(.c) void {
     _ = thiz;
     if (data == null) return;
     const len = env.*.*.GetArrayLength.?(env, data);
@@ -635,25 +635,25 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeWriteRemote(en
     env.*.*.ReleaseByteArrayElements.?(env, data, bytes, c.JNI_ABORT);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeResize(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, cols: c.jint, rows: c.jint, cell_width: c.jint, cell_height: c.jint) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeResize(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, cols: c.jint, rows: c.jint, cell_width: c.jint, cell_height: c.jint) callconv(.c) void {
     _ = env;
     _ = thiz;
     chuchu_resize(handle, cols, rows, cell_width, cell_height);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeScroll(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, delta: c.jint, x: c.jfloat, y: c.jfloat) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeScroll(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, delta: c.jint, x: c.jfloat, y: c.jfloat) callconv(.c) void {
     _ = env;
     _ = thiz;
     chuchu_scroll(handle, delta, x, y);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeScrollToActive(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeScrollToActive(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) void {
     _ = env;
     _ = thiz;
     chuchu_scroll_to_active(handle);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSnapshot(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jobject {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSnapshot(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jobject {
     _ = thiz;
     var size: usize = 0;
     const buffer = chuchu_build_text_snapshot(handle, &size);
@@ -661,7 +661,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSnapshot(env: 
     return jniNewDirectByteBuffer(env, @ptrCast(buffer), @intCast(size));
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSnapshotImages(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jobject {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSnapshotImages(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jobject {
     _ = thiz;
     var size: usize = 0;
     const buffer = chuchu_build_image_snapshot(handle, &size);
@@ -669,50 +669,50 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSnapshotImages
     return jniNewDirectByteBuffer(env, @ptrCast(buffer), @intCast(size));
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeIsImageLoading(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jboolean {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeIsImageLoading(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jboolean {
     _ = env;
     _ = thiz;
     const terminal = chuchuFromHandle(handle) orelse return c.JNI_FALSE;
     return if (terminal.terminal.screens.active.kitty_images.loading != null) c.JNI_TRUE else c.JNI_FALSE;
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativePollTitle(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jstring {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativePollTitle(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jstring {
     _ = thiz;
     const value = chuchu_poll_title_ptr(handle) orelse return null;
     return jniNewStringUTF(env, value);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativePollPwd(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jstring {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativePollPwd(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jstring {
     _ = thiz;
     const value = chuchu_poll_pwd_ptr(handle) orelse return null;
     return jniNewStringUTF(env, value);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativePollClipboard(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jbyteArray {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativePollClipboard(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jbyteArray {
     _ = thiz;
     const bytes = chuchu_poll_clipboard(handle) orelse return null;
     return jniByteArrayFromBytes(env, bytes);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeDrainBellCount(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jint {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeDrainBellCount(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jint {
     _ = env;
     _ = thiz;
     return chuchu_drain_bell_count(handle);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSetColorScheme(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, scheme: c.jint) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSetColorScheme(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, scheme: c.jint) callconv(.c) void {
     _ = env;
     _ = thiz;
     chuchu_set_color_scheme(handle, scheme);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSetMouseEncodingSize(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, screen_width: c.jint, screen_height: c.jint, cell_width: c.jint, cell_height: c.jint, padding_top: c.jint, padding_bottom: c.jint, padding_left: c.jint, padding_right: c.jint) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSetMouseEncodingSize(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, screen_width: c.jint, screen_height: c.jint, cell_width: c.jint, cell_height: c.jint, padding_top: c.jint, padding_bottom: c.jint, padding_left: c.jint, padding_right: c.jint) callconv(.c) void {
     _ = env;
     _ = thiz;
     chuchu_set_mouse_encoding_size(handle, screen_width, screen_height, cell_width, cell_height, padding_top, padding_bottom, padding_left, padding_right);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodeKey(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, key: c.jint, codepoint: c.jint, mods: c.jint, action: c.jint, utf8_jstring: c.jstring) callconv(.c) c.jbyteArray {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeEncodeKey(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, key: c.jint, codepoint: c.jint, mods: c.jint, action: c.jint, utf8_jstring: c.jstring) callconv(.c) c.jbyteArray {
     _ = thiz;
     const terminal = chuchuFromHandle(handle) orelse return jniEmptyByteArray(env);
     const action_value: ghostty.input.KeyAction = std.enums.fromInt(ghostty.input.KeyAction, action) orelse return jniEmptyByteArray(env);
@@ -746,7 +746,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodeKey(env:
     return jniByteArrayFromBytes(env, writer.buffered());
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodePaste(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, data_jstring: c.jstring) callconv(.c) c.jbyteArray {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeEncodePaste(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, data_jstring: c.jstring) callconv(.c) c.jbyteArray {
     _ = thiz;
     const terminal = chuchuFromHandle(handle) orelse return jniEmptyByteArray(env);
     if (data_jstring == null) return jniEmptyByteArray(env);
@@ -778,7 +778,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodePaste(en
     return jniByteArrayFromBytes(env, out);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodeMouse(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, action: c.jint, button: c.jint, mods: c.jint, x: c.jfloat, y: c.jfloat, any_button_pressed: c.jboolean, track_last_cell: c.jboolean) callconv(.c) c.jbyteArray {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeEncodeMouse(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, action: c.jint, button: c.jint, mods: c.jint, x: c.jfloat, y: c.jfloat, any_button_pressed: c.jboolean, track_last_cell: c.jboolean) callconv(.c) c.jbyteArray {
     _ = thiz;
     const terminal = chuchuFromHandle(handle) orelse return jniEmptyByteArray(env);
     if (!terminal.mouse_size_set) return jniEmptyByteArray(env);
@@ -797,7 +797,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodeMouse(en
     return jniByteArrayFromBytes(env, writer.buffered());
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodeFocus(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, focused: c.jboolean) callconv(.c) c.jbyteArray {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeEncodeFocus(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, focused: c.jboolean) callconv(.c) c.jbyteArray {
     _ = thiz;
     const terminal = chuchuFromHandle(handle) orelse return jniEmptyByteArray(env);
     if (!terminal.terminal.modes.get(.focus_event)) return jniEmptyByteArray(env);
@@ -807,7 +807,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeEncodeFocus(en
     return jniByteArrayFromBytes(env, writer.buffered());
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeDrainPtyWrites(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jbyteArray {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeDrainPtyWrites(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) c.jbyteArray {
     _ = thiz;
     const terminal = chuchuFromHandle(handle) orelse return jniEmptyByteArray(env);
     if (terminal.pty_write_len == 0) return jniEmptyByteArray(env);
@@ -816,7 +816,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeDrainPtyWrites
     return out;
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSetDefaultColors(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, fg_rgb: c.jintArray, bg_rgb: c.jintArray, cursor_rgb: c.jintArray, palette_rgb: c.jbyteArray) callconv(.c) void {
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSetDefaultColors(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong, fg_rgb: c.jintArray, bg_rgb: c.jintArray, cursor_rgb: c.jintArray, palette_rgb: c.jbyteArray) callconv(.c) void {
     _ = thiz;
     var fg_vals: [3]u8 = .{ 0, 0, 0 };
     var bg_vals: [3]u8 = .{ 0, 0, 0 };
@@ -1192,7 +1192,7 @@ fn prepareImageData(image_id: u32, image: ghostty.kitty.graphics.Image) ?Prepare
                 logWarn("kitty placement skipped image_id={} reason=empty_png", .{image_id});
                 return null;
             }
-            // No PNG decoder is linked in Rex Companion (see chuchuDecodePng).
+            // No PNG decoder is linked in Rhubarb (see chuchuDecodePng).
             logWarn("kitty placement skipped image_id={} reason=png_unsupported", .{image_id});
             return null;
         },
@@ -1562,7 +1562,7 @@ fn selectionTextFromPins(
     });
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeFormatSelectionRange(
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeFormatSelectionRange(
     env: *c.JNIEnv,
     thiz: c.jobject,
     handle: c.jlong,
@@ -1592,7 +1592,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeFormatSelectio
 /// Used for content-tracking selections that span off-screen scrollback —
 /// the host converts viewport-space to screen-space via viewportScrollY so
 /// the full selected range (including scrolled-away content) is extracted.
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeFormatSelectionScreenRange(
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeFormatSelectionScreenRange(
     env: *c.JNIEnv,
     thiz: c.jobject,
     handle: c.jlong,
@@ -1611,7 +1611,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeFormatSelectio
     return jniNewStringUTF(env, text.ptr);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSelectWordAt(
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSelectWordAt(
     env: *c.JNIEnv,
     thiz: c.jobject,
     handle: c.jlong,
@@ -1634,7 +1634,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSelectWordAt(
     return jniNewStringUTF(env, text.ptr);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSelectLineAt(
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSelectLineAt(
     env: *c.JNIEnv,
     thiz: c.jobject,
     handle: c.jlong,
@@ -1660,7 +1660,7 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSelectLineAt(
     return jniNewStringUTF(env, text.ptr);
 }
 
-export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeSelectAll(
+export fn Java_com_wiselabs_rhubarb_ghostty_GhosttyBridge_nativeSelectAll(
     env: *c.JNIEnv,
     thiz: c.jobject,
     handle: c.jlong,

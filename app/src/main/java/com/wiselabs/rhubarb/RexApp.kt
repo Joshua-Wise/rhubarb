@@ -1,10 +1,10 @@
-package com.jwise.rexcompanion
+package com.wiselabs.rhubarb
 
 import android.app.Application
 import android.content.Context
-import com.jwise.rexcompanion.rex.RexControl
-import com.jwise.rexcompanion.rex.RexHub
-import com.jwise.rexcompanion.service.Notifier
+import com.wiselabs.rhubarb.rex.RexControl
+import com.wiselabs.rhubarb.rex.RexHub
+import com.wiselabs.rhubarb.service.Notifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -82,7 +82,7 @@ class RexApp : Application() {
     @Synchronized private fun ensureHub(): RexHub? {
         _hub.value?.let { return it }
         val url = serverUrl ?: return null
-        val h = RexHub(RexControl.normalizeBase(url), scope, "Rex Companion", { settings.deviceLabel.value }) { sid, bid, name, payload, hub ->
+        val h = RexHub(RexControl.normalizeBase(url), scope, "Rhubarb", { settings.deviceLabel.value }) { sid, bid, name, payload, hub ->
             notifier.onBlockEvent(sid, bid, name, payload, hub)
         }
         h.start()

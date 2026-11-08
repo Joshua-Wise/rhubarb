@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import android.os.Build
 import androidx.compose.foundation.layout.Column
@@ -50,11 +50,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.jwise.rexcompanion.BuildConfig
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.TerminalColors
-import com.jwise.rexcompanion.ThemeMode
-import com.jwise.rexcompanion.service.WatchService
+import com.wiselabs.rhubarb.BuildConfig
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.TerminalColors
+import com.wiselabs.rhubarb.ThemeMode
+import com.wiselabs.rhubarb.service.WatchService
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -112,7 +112,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     supporting = { Text(if (current) "Connected · ${displayAddress(url)}" else displayAddress(url)) },
                     trailing = {
                         if (current) Icon(Icons.Default.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary)
-                        else if (st.savedHosts.value.any { com.jwise.rexcompanion.Settings.hostKey(it.second) == com.jwise.rexcompanion.Settings.hostKey(url) })
+                        else if (st.savedHosts.value.any { com.wiselabs.rhubarb.Settings.hostKey(it.second) == com.wiselabs.rhubarb.Settings.hostKey(url) })
                             IconButton(onClick = { st.forgetHost(url) }) { Icon(Icons.Default.Close, "Forget host") }
                     })
             }
@@ -186,9 +186,9 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 headline = { Text("Renderer") },
                 supporting = {
                     Column {
-                        Text(if (renderer == com.jwise.rexcompanion.Renderer.Ghostty) "Ghostty, the same terminal engine as Rex's own apps (beta)" else "xterm.js in a web view")
+                        Text(if (renderer == com.wiselabs.rhubarb.Renderer.Ghostty) "Ghostty, the same terminal engine as Rex's own apps (beta)" else "xterm.js in a web view")
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            listOf(com.jwise.rexcompanion.Renderer.Ghostty to "Ghostty", com.jwise.rexcompanion.Renderer.Xterm to "xterm.js").forEachIndexed { i, (v, label) ->
+                            listOf(com.wiselabs.rhubarb.Renderer.Ghostty to "Ghostty", com.wiselabs.rhubarb.Renderer.Xterm to "xterm.js").forEachIndexed { i, (v, label) ->
                                 SegmentedButton(selected = renderer == v, onClick = { st.setRenderer(v) },
                                     shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
                             }
@@ -204,7 +204,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             SectionHeader("About")
             GroupItem(0, 1,
                 leading = { Icon(Icons.Default.Info, null) },
-                headline = { Text("Rex Companion ${BuildConfig.VERSION_NAME}") },
+                headline = { Text("Rhubarb ${BuildConfig.VERSION_NAME}") },
                 supporting = {
                     Text(
                         "An unofficial Android client for Rex by Superlogical, built on the API every Rex server " +

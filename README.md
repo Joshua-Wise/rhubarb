@@ -1,4 +1,4 @@
-# Rex Companion (unofficial Android client)
+# Rhubarb: an unofficial Android client for Rex
 
 An Android companion for [Rex](https://www.superlogical.com/), the terminal multiplexer from
 Superlogical. Superlogical ships macOS (and is working on iOS); this app is an independent,
@@ -77,14 +77,14 @@ adb install -r ~/Library/Caches/rexAndroid/app/outputs/apk/debug/app-debug.apk
 ## Phone setup
 
 1. Install Tailscale on the Pixel and sign in with the same account as the Mac.
-2. Open Rex Companion and enter the server address, for example `my-mac-rex.tailnet.ts.net`.
+2. Open Rhubarb and enter the server address, for example `my-mac-rex.tailnet.ts.net`.
 3. Optional: turn on **Watch in background** to get alerts while the app is closed. This
    keeps a foreground-service connection open, because Rex has no push channel to phones.
 
 ## Layout
 
 ```
-app/src/main/java/com/jwise/rexcompanion/
+app/src/main/java/com/wiselabs/rhubarb/
   rex/RexControl.kt      control WebSocket: hello/welcome, requests, events, reconnect token
   rex/TerminalStream.kt  data WebSocket: ticket HELLO, RESUME w/ exact byte count, APC parsing
   rex/RexHub.kt          live model: sessions, views, titles, program statuses

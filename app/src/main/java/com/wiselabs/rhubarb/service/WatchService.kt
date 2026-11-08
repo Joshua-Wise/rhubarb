@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.service
+package com.wiselabs.rhubarb.service
 
 import android.app.Service
 import android.content.BroadcastReceiver
@@ -10,10 +10,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
 import androidx.core.app.ServiceCompat
-import com.jwise.rexcompanion.MainActivity
-import com.jwise.rexcompanion.R
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.rex.ConnState
+import com.wiselabs.rhubarb.MainActivity
+import com.wiselabs.rhubarb.R
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.rex.ConnState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
@@ -60,8 +60,8 @@ class WatchService : Service() {
     }
 
     private fun buildNotification(text: String) = NotificationCompat.Builder(this, Notifier.CH_SERVICE)
-        .setSmallIcon(R.drawable.ic_stat_rex)
-        .setContentTitle("Rex Companion")
+        .setSmallIcon(R.drawable.ic_stat_rhubarb)
+        .setContentTitle("Rhubarb")
         .setContentText(text)
         .setOngoing(true)
         .setSilent(true)

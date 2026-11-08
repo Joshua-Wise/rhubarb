@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.rex
+package com.wiselabs.rhubarb.rex
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope

@@ -1,5 +1,5 @@
 // Adapted from chuchu (https://github.com/jossephus/chuchu, MIT; see native/LICENSE-chuchu).
-package com.jwise.rexcompanion.ghostty
+package com.wiselabs.rhubarb.ghostty
 
 
 import android.graphics.Paint
@@ -52,10 +52,10 @@ fun TerminalCanvas(
     modifier: Modifier = Modifier,
     fontSizeSp: Float = 14f,
     fitSnapshotToCanvas: Boolean = false,
-    // Rex Companion: with fitSnapshotToCanvas, scale to the canvas width and anchor the bottom
+    // Rhubarb: with fitSnapshotToCanvas, scale to the canvas width and anchor the bottom
     // rows (the prompt) when the grid is taller than the canvas, instead of fitting both ways.
     fitWidth: Boolean = false,
-    // Rex Companion: long-press always selects text on the phone, even when the program reports
+    // Rhubarb: long-press always selects text on the phone, even when the program reports
     // mouse drags (Claude Code does), since a drag sent to the Mac would select there instead.
     clientSelectionOnly: Boolean = false,
     enableGestures: Boolean = true,

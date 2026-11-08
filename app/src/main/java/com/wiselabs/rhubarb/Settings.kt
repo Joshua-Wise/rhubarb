@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion
+package com.wiselabs.rhubarb
 
 import android.content.Context
 import android.content.SharedPreferences

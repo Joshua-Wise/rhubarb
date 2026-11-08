@@ -1,4 +1,4 @@
-package com.jwise.rexcompanion.ui
+package com.wiselabs.rhubarb.ui
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,9 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import com.jwise.rexcompanion.RexApp
-import com.jwise.rexcompanion.ThemeMode
-import com.jwise.rexcompanion.rex.BlockLive
+import com.wiselabs.rhubarb.RexApp
+import com.wiselabs.rhubarb.ThemeMode
+import com.wiselabs.rhubarb.rex.BlockLive
 
 // Fallback scheme (no dynamic color): a green seed, roles laid out per the M3 tonal model.
 private val LightScheme = lightColorScheme(
@@ -136,7 +136,7 @@ fun programOf(l: BlockLive?): Program {
     fun has(vararg k: String) = k.any { app == it || name == it || path.contains("/$it/") || path.endsWith("/$it") }
     return when {
         has("claude-code", "claude") -> Program("Claude Code", Icons.Default.AutoAwesome, agent = true,
-            drawable = com.jwise.rexcompanion.R.drawable.ic_claude, brandColor = Color(0xFFD97757))
+            drawable = com.wiselabs.rhubarb.R.drawable.ic_claude, brandColor = Color(0xFFD97757))
         has("codex", "opencode", "aider", "gemini", "pi") -> Program(app ?: name, Icons.Default.SmartToy, agent = true)
         has("vim", "nvim", "vi", "hx", "helix", "nano", "emacs", "micro") -> Program(name, Icons.Default.EditNote)
         has("ssh", "mosh", "mosh-client", "et") -> Program(name, Icons.Default.Lan)
