@@ -111,6 +111,10 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     val dark = isDark()
     val termColors by app.settings.terminalColors.collectAsState()
     val palette = if (dark) TermDark else TermLight
+    val ghostty = remember { com.jwise.rexcompanion.ghostty.GhosttyTerminal(app.scope) }
+    // Chosen when the pane opens; switching renderers applies to the next pane opened.
+    val useGhostty = remember { app.settings.renderer.value == com.jwise.rexcompanion.Renderer.Ghostty && ghostty.available }
+    var canvasGrid by remember { mutableStateOf<IntArray?>(null) } // cols, rows, cellW, cellH at the canvas's font
 
     var status by remember { mutableStateOf<String?>("connecting…") }
     var ctrl by remember { mutableStateOf(false) }
@@ -196,12 +200,13 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     var macTheme by remember { mutableStateOf<String?>(null) }
     // Apply the phone's palette (or the Mac's) whenever the theme or the choice changes.
     LaunchedEffect(dark, termColors, macTheme) {
+        if (useGhostty) ghostty.setColors(ghosttyColors(palette, macTheme.takeIf { termColors == com.jwise.rexcompanion.TerminalColors.Mac }))
         if (termColors == com.jwise.rexcompanion.TerminalColors.App || macTheme == null) {
             js("rex.theme(${palette.toJson()})")
             webView.setBackgroundColor(android.graphics.Color.parseColor("#" + palette.bg))
         } else js("rex.theme($macTheme)")
     }
-    jumpToLiveRef[0] = { js("rex.scrollToBottom()") }
+    jumpToLiveRef[0] = { if (useGhostty) ghostty.scrollToBottom() else js("rex.scrollToBottom()") }
 
     DisposableEffect(blockId) {
         app.visibleBlockId = blockId
@@ -221,9 +226,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             }
             stream.events.collect { ev ->
                 when (ev) {
-                    is TermEvent.Reset -> { synchronized(pending) { pending.reset() }; js("rex.reset()") }
-                    is TermEvent.Output -> { rx += ev.bytes.size; synchronized(pending) { pending.write(ev.bytes) } }
-                    is TermEvent.Resize -> { gridSize = "${ev.cols}×${ev.rows}"; js("rex.resize(${ev.cols}, ${ev.rows})") }
+                    is TermEvent.Reset -> if (useGhostty) ghostty.reset() else { synchronized(pending) { pending.reset() }; js("rex.reset()") }
+                    is TermEvent.Output -> { rx += ev.bytes.size; if (useGhostty) ghostty.write(ev.bytes) else synchronized(pending) { pending.write(ev.bytes) } }
+                    is TermEvent.Resize -> { gridSize = "${ev.cols}×${ev.rows}"; if (useGhostty) ghostty.resize(ev.cols, ev.rows) else js("rex.resize(${ev.cols}, ${ev.rows})") }
                     // The Mac's colors arrive in the stream; use them only if the user chose to.
                     is TermEvent.Theme -> { macTheme = ev.json.toString(); if (app.settings.terminalColors.value == com.jwise.rexcompanion.TerminalColors.Mac) js("rex.theme($macTheme)") }
                     is TermEvent.ChildExited -> status = "program exited (${ev.code})"
@@ -234,7 +239,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         }
         stream.start()
         onDispose {
-            job.cancel(); stream.stop()
+            job.cancel(); stream.stop(); ghostty.close()
             if (app.visibleBlockId == blockId) app.visibleBlockId = null
             if (owned) app.scope.launch { release(h, sessionId, blockId) }
             webView.destroy()
@@ -262,8 +267,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
-                    IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
+                    IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
+                    IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
@@ -272,7 +277,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                                 menu = false
                                 scope.launch {
                                     if (owned) { release(h, sessionId, blockId); owned = false }
-                                    else owned = takeOver(h, sessionId, blockId, webView)
+                                    else owned = takeOver(h, sessionId, blockId) {
+                                        if (useGhostty) canvasGrid?.let { g -> PhoneGrid(g[0], g[1], g[2], g[3]) } else xtermPhoneGrid(webView)
+                                    }
                                 }
                             },
                         )
@@ -284,7 +291,16 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().imePadding().navigationBarsPadding()) {
             androidx.compose.foundation.layout.Box(Modifier.weight(1f).fillMaxWidth()) {
-                AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+                if (useGhostty) {
+                    GhosttyPane(
+                        ghostty = ghostty, zoom = zoom, fitToWidth = !owned, background = palette.bg,
+                        onTap = { if (!compose) inputView.showKeyboard() },
+                        onWheelInput = { bytes -> send(String(bytes, Charsets.UTF_8)) },
+                        onCanvasGrid = { canvasGrid = it },
+                    )
+                } else {
+                    AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+                }
                 // Invisible owner of the soft keyboard; tapping the terminal focuses it.
                 AndroidView(factory = { inputView }, modifier = Modifier.size(1.dp))
             }
@@ -326,20 +342,27 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     }
 }
 
-/** Claim the block so its size follows this phone, then size it to the phone screen. */
-private suspend fun takeOver(h: RexHub, sessionId: String, blockId: String, webView: WebView): Boolean = try {
+data class PhoneGrid(val cols: Int, val rows: Int, val cellW: Int, val cellH: Int)
+
+/** The phone-sized grid the xterm.js page computes at a readable font size. */
+private suspend fun xtermPhoneGrid(webView: WebView): PhoneGrid? = try {
     val grid = CompletableDeferred<String>()
     withContext(Dispatchers.Main) { webView.evaluateJavascript("rex.phoneGrid(12)") { grid.complete(it) } }
     // evaluateJavascript returns a JSON-encoded string literal.
     val g = kotlinx.serialization.json.Json.parseToJsonElement(
         kotlinx.serialization.json.Json.parseToJsonElement(grid.await()).jsonPrimitive.content
     ).jsonObject
+    PhoneGrid(g["cols"]!!.jsonPrimitive.int, g["rows"]!!.jsonPrimitive.int, g["cw"]!!.jsonPrimitive.int, g["ch"]!!.jsonPrimitive.int)
+} catch (e: Exception) { null }
+
+/** Claim the block so its size follows this phone, then size it to [grid]. */
+private suspend fun takeOver(h: RexHub, sessionId: String, blockId: String, grid: suspend () -> PhoneGrid?): Boolean = try {
+    val g = grid() ?: throw IllegalStateException("no grid")
     h.control.call("session.own_block", buildJsonObject {
         put("session_id", sessionId); put("block_ids", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(blockId)) }); put("mode", "take")
     })
     h.control.blockCall(sessionId, blockId, "com.superlogical.terminal.resize", buildJsonObject {
-        put("columns", g["cols"]!!.jsonPrimitive.int); put("rows", g["rows"]!!.jsonPrimitive.int)
-        put("cell_width_px", g["cw"]!!.jsonPrimitive.int); put("cell_height_px", g["ch"]!!.jsonPrimitive.int)
+        put("columns", g.cols); put("rows", g.rows); put("cell_width_px", g.cellW); put("cell_height_px", g.cellH)
     })
     true
 } catch (e: Exception) { false }

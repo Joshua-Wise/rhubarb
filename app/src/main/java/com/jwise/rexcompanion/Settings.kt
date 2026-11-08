@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 enum class ThemeMode { System, Light, Dark }
 enum class TerminalColors { App, Mac }
+enum class Renderer { Ghostty, Xterm }
 
 /** User preferences, exposed as StateFlows so Compose recomposes when they change. */
 class Settings(ctx: Context) {
@@ -48,6 +49,11 @@ class Settings(ctx: Context) {
         val list = _savedHosts.value.filter { hostKey(it.second) != hostKey(url) }
         p.edit().putString("hosts", encodeHosts(list)).apply(); _savedHosts.value = list
     }
+
+    private val _renderer = flow(runCatching { Renderer.valueOf(p.getString("renderer", "Ghostty")!!) }.getOrDefault(Renderer.Ghostty))
+    /** Which terminal engine draws panes: Ghostty (native) or xterm.js (WebView). */
+    val renderer: StateFlow<Renderer> = _renderer
+    fun setRenderer(v: Renderer) { p.edit().putString("renderer", v.name).apply(); _renderer.value = v }
 
     private val _notifyPrograms = flow(p.getBoolean("notify_programs", true))
     val notifyPrograms: StateFlow<Boolean> = _notifyPrograms

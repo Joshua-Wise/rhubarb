@@ -30,6 +30,21 @@ the **same Tailscale login** and identifies them by that login, so the app needs
 or token. Turn it on from the Mac with `rex server tailscale on`. `rex server status` prints
 the address.
 
+### Renderers
+
+Panes are drawn by **Ghostty** by default: Ghostty's VT core (`native/`, built with Zig into
+`librexterm.so`) behind a JNI bridge and Compose canvas adapted from
+[chuchu](https://github.com/jossephus/chuchu) (MIT). Rex's terminal stream is fed straight into it;
+replies Ghostty would send to the program are dropped (the Mac's terminal already answers), while
+wheel input from scroll gestures is forwarded. Settings → Terminal → Renderer switches back to
+xterm.js.
+
+Build the native library before the app (needs Zig 0.17 and the Android NDK):
+
+```sh
+ZIG=/path/to/zig ANDROID_NDK_HOME=/path/to/ndk scripts/build-native.sh
+```
+
 ### Rendering note
 
 A terminal's data stream begins with a binary Ghostty snapshot (`GHOSTSNP`) that only

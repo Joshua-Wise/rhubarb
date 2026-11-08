@@ -177,6 +177,23 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     }
                 })
 
+            SectionHeader("Terminal")
+            val renderer by st.renderer.collectAsState()
+            GroupItem(0, 1,
+                leading = { Icon(Icons.Default.Terminal, null) },
+                headline = { Text("Renderer") },
+                supporting = {
+                    Column {
+                        Text(if (renderer == com.jwise.rexcompanion.Renderer.Ghostty) "Ghostty, the same terminal engine as Rex's own apps (beta)" else "xterm.js in a web view")
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            listOf(com.jwise.rexcompanion.Renderer.Ghostty to "Ghostty", com.jwise.rexcompanion.Renderer.Xterm to "xterm.js").forEachIndexed { i, (v, label) ->
+                                SegmentedButton(selected = renderer == v, onClick = { st.setRenderer(v) },
+                                    shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
+                            }
+                        }
+                    }
+                })
+
             SectionHeader("About")
             GroupItem(0, 1,
                 leading = { Icon(Icons.Default.Info, null) },
@@ -184,7 +201,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 supporting = {
                     Text(
                         "An unofficial Android client for Rex by Superlogical, built on the API every Rex server " +
-                            "documents at /llms.txt. Terminal rendering by xterm.js (MIT).",
+                            "documents at /llms.txt. Terminal rendering by Ghostty (MIT) via chuchu (MIT), or xterm.js (MIT).",
                     )
                 })
         }
