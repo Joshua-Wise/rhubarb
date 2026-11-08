@@ -493,13 +493,18 @@ export fn chuchu_create_terminal(cols: c.jint, rows: c.jint, max_scrollback: c.j
     }) catch return 0;
     errdefer inner.deinit(allocator);
 
+    return adoptTerminal(io, terminal, inner, true);
+}
+
+/// Finish a ChuchuTerminal around [inner] (now owned by it): wire the stream and its effects.
+fn adoptTerminal(io: std.Io, terminal: *ChuchuTerminal, inner: ghostty.Terminal, grapheme_mode: bool) c.jlong {
     terminal.* = .{
         .io = io,
         .terminal = inner,
         .stream_handler = undefined,
         .stream = undefined,
-        .cols = init_cols,
-        .rows = init_rows,
+        .cols = @intCast(inner.cols),
+        .rows = @intCast(inner.rows),
         .cell_width = 1,
         .cell_height = 1,
     };
@@ -518,10 +523,44 @@ export fn chuchu_create_terminal(cols: c.jint, rows: c.jint, max_scrollback: c.j
         .inner = handler,
     };
     terminal.stream = .init(.{ .handler = &terminal.stream_handler, .allocator = allocator });
-    enableGraphemeClusterMode(terminal);
+    if (grapheme_mode) enableGraphemeClusterMode(terminal);
 
     update_render_state(terminal);
     return chuchuHandleFromPtr(terminal);
+}
+
+/// Rex Companion: build a terminal from a Ghostty binary snapshot (the GHOSTSNP blob that starts
+/// Rex's terminal stream), so the phone opens on the Mac's exact screen, modes and scrollback.
+/// Returns 0 if the snapshot can't be decoded (e.g. a format version this build doesn't know);
+/// the caller then falls back to an empty terminal seeded another way.
+export fn chuchu_restore_snapshot(data: [*]const u8, len: usize) callconv(.c) c.jlong {
+    ghostty.sys.decode_png = chuchuDecodePng;
+    const io = jni_io.get();
+    var reader: std.Io.Reader = .fixed(data[0..len]);
+    var decoded = ghostty.snapshot.decode(allocator, io, &reader, .{
+        .max_continuation_bytes = 1 << 20,
+        .compress_history = true,
+    }) catch |err| {
+        logWarn("snapshot restore failed: {s}", .{@errorName(err)});
+        return 0;
+    };
+    defer decoded.deinit(allocator);
+
+    const terminal = allocator.create(ChuchuTerminal) catch return 0;
+    var inner = decoded.toOwned();
+    const handle = adoptTerminal(io, terminal, inner, false);
+    if (handle == 0) {
+        inner.deinit(allocator);
+        allocator.destroy(terminal);
+        return 0;
+    }
+    // A cut in the middle of an escape sequence: replay the partial bytes once, as documented.
+    switch (decoded.continuation) {
+        .ground => {},
+        .bytes => |bytes| terminal.stream.nextSlice(bytes),
+    }
+    update_render_state(terminal);
+    return handle;
 }
 
 export fn chuchu_destroy_terminal(handle: c.jlong) callconv(.c) void {
@@ -564,6 +603,18 @@ export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeCreate(env: *c
     _ = env;
     _ = thiz;
     return chuchu_create_terminal(cols, rows, max_scrollback);
+}
+
+export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeRestoreSnapshot(env: *c.JNIEnv, thiz: c.jobject, data: c.jbyteArray) callconv(.c) c.jlong {
+    _ = thiz;
+    if (data == null) return 0;
+    const len = env.*.*.GetArrayLength.?(env, data);
+    if (len <= 0) return 0;
+    var is_copy: c.jboolean = c.JNI_FALSE;
+    const bytes = env.*.*.GetByteArrayElements.?(env, data, &is_copy);
+    if (bytes == null) return 0;
+    defer env.*.*.ReleaseByteArrayElements.?(env, data, bytes, c.JNI_ABORT);
+    return chuchu_restore_snapshot(@ptrCast(bytes), @intCast(len));
 }
 
 export fn Java_com_jwise_rexcompanion_ghostty_GhosttyBridge_nativeDestroy(env: *c.JNIEnv, thiz: c.jobject, handle: c.jlong) callconv(.c) void {

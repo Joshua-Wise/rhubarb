@@ -24,6 +24,8 @@ class GhosttyBridge {
     external fun nativeVersion(): String
     external fun nativeCreate(cols: Int, rows: Int, maxScrollback: Int): Long
     external fun nativeDestroy(handle: Long)
+    /** A terminal restored from a Ghostty binary snapshot, or 0 if it can't be decoded. */
+    external fun nativeRestoreSnapshot(data: ByteArray): Long
     external fun nativeWriteRemote(handle: Long, data: ByteArray)
     external fun nativeResize(handle: Long, cols: Int, rows: Int, cellW: Int, cellH: Int)
     external fun nativeScroll(handle: Long, delta: Int, x: Float, y: Float)
