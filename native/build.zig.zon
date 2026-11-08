@@ -1,0 +1,18 @@
+.{
+    .name = .rexterm,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        // Same Ghostty revision chuchu pins (1.4.1-dev); terminal emulation only (ghostty-vt).
+        .ghostty = .{
+            .url = "git+https://github.com/ghostty-org/ghostty#ca91d0a24e67b3eecdb23c943227cd2b3908747b",
+            .hash = "ghostty-1.4.1-dev-5UdBC-VdiAUPjIxn93BfW5tNFYhsx9HyIJD23opWW6HE",
+        },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=zig-0.17.x#cfac21f3199b2b02ce3fd7db652aa456421fe4ab",
+            .hash = "translate_c-2.0.2-Q_BUWvBNBwDnyehSiuAJmdFcMYHYGA-Jc3KiYdrV2Dqx",
+        },
+    },
+    .fingerprint = 0xf34b130aee7dbb8c,
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}

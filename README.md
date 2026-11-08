@@ -13,9 +13,10 @@ unofficial client built on the API that every Rex server documents about itself 
   one goes `blocked` (permission, question, or password), you get a high-priority notification
   with a **Reply** action that types into the terminal. You can also be told when work goes
   `working` → `done`, and you get OSC 9/777 desktop notifications from programs.
-- **Live terminal**: watch any pane in real time (xterm.js), type with a phone-friendly key
-  bar (Esc, Tab, arrows, ^C, 1/2/3, y/n…), paste, and zoom. **Fit terminal to phone** claims
-  the pane and resizes it to the phone. **Give size back to Mac** returns it.
+- **Live terminal**: watch any pane in real time (Ghostty, or xterm.js as a fallback), type
+  with a phone-friendly key bar (Esc, Tab, arrows, ^C, 1/2/3, y/n…), paste, and long-press to
+  copy. Panes fit the phone while open and get the Mac's size back when you leave
+  (Settings → Terminal → Fit panes to phone turns this off and shows the Mac's grid with zoom).
 
 ## How it connects
 
@@ -29,6 +30,21 @@ The Rex server runs its own Tailscale node. It accepts connections from devices 
 the **same Tailscale login** and identifies them by that login, so the app needs no password
 or token. Turn it on from the Mac with `rex server tailscale on`. `rex server status` prints
 the address.
+
+### Renderers
+
+Panes are drawn by **Ghostty** by default: Ghostty's VT core (`native/`, built with Zig into
+`librexterm.so`) behind a JNI bridge and Compose canvas adapted from
+[chuchu](https://github.com/jossephus/chuchu) (MIT). Rex's terminal stream is fed straight into it;
+replies Ghostty would send to the program are dropped (the Mac's terminal already answers), while
+wheel input from scroll gestures is forwarded. Settings → Terminal → Renderer switches back to
+xterm.js.
+
+Build the native library before the app (needs Zig 0.17 and the Android NDK):
+
+```sh
+ZIG=/path/to/zig ANDROID_NDK_HOME=/path/to/ndk scripts/build-native.sh
+```
 
 ### Rendering note
 

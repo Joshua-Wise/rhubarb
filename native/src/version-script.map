@@ -1,0 +1,9 @@
+{
+  global:
+    JNI_OnLoad;
+    Java_*;
+    chuchu_*;
+    update_render_state;
+  local:
+    *;
+};

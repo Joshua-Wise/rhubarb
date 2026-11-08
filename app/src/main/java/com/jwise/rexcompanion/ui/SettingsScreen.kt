@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CheckCircle
@@ -177,6 +178,29 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     }
                 })
 
+            SectionHeader("Terminal")
+            val renderer by st.renderer.collectAsState()
+            val fitToPhone by st.fitToPhone.collectAsState()
+            GroupItem(0, 2,
+                leading = { Icon(Icons.Default.Terminal, null) },
+                headline = { Text("Renderer") },
+                supporting = {
+                    Column {
+                        Text(if (renderer == com.jwise.rexcompanion.Renderer.Ghostty) "Ghostty, the same terminal engine as Rex's own apps (beta)" else "xterm.js in a web view")
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            listOf(com.jwise.rexcompanion.Renderer.Ghostty to "Ghostty", com.jwise.rexcompanion.Renderer.Xterm to "xterm.js").forEachIndexed { i, (v, label) ->
+                                SegmentedButton(selected = renderer == v, onClick = { st.setRenderer(v) },
+                                    shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
+                            }
+                        }
+                    }
+                })
+            GroupItem(1, 2,
+                leading = { Icon(Icons.Default.PhoneAndroid, null) },
+                headline = { Text("Fit panes to phone") },
+                supporting = { Text("Resize a pane to this screen while you have it open. The Mac shows it at the phone's size until you leave.") },
+                trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
+
             SectionHeader("About")
             GroupItem(0, 1,
                 leading = { Icon(Icons.Default.Info, null) },
@@ -184,7 +208,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 supporting = {
                     Text(
                         "An unofficial Android client for Rex by Superlogical, built on the API every Rex server " +
-                            "documents at /llms.txt. Terminal rendering by xterm.js (MIT).",
+                            "documents at /llms.txt. Terminal rendering by Ghostty (MIT) via chuchu (MIT), or xterm.js (MIT).",
                     )
                 })
         }
