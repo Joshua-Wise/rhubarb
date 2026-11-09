@@ -10,7 +10,7 @@ enum class TerminalColors { App, Mac }
 enum class Renderer { Ghostty, Xterm }
 
 /** User preferences, exposed as StateFlows so Compose recomposes when they change. */
-class Settings(ctx: Context) {
+class Settings(private val ctx: Context) {
     private val p: SharedPreferences = ctx.getSharedPreferences("rex", Context.MODE_PRIVATE)
 
     private fun <T> flow(v: T) = MutableStateFlow(v)
@@ -27,7 +27,22 @@ class Settings(ctx: Context) {
     val terminalColors: StateFlow<TerminalColors> = _terminalColors
     fun setTerminalColors(v: TerminalColors) { p.edit().putString("term_colors", v.name).apply(); _terminalColors.value = v }
 
-    private val _deviceLabel = flow(p.getString("device_label", null) ?: "Pixel")
+    /** The name the user gave the phone ("Josh's S25"), else its model ("Pixel 9", "Samsung SM-S931U"). */
+    private fun defaultDeviceLabel(): String {
+        val named = runCatching {
+            android.provider.Settings.Global.getString(ctx.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
+        }.getOrNull()?.trim()
+        if (!named.isNullOrEmpty()) return named
+        val model = android.os.Build.MODEL.trim()
+        val maker = android.os.Build.MANUFACTURER.trim().replaceFirstChar { it.uppercase() }
+        return when {
+            model.isEmpty() -> "Android"
+            maker.isEmpty() || model.startsWith(maker, ignoreCase = true) -> model
+            else -> "$maker $model"
+        }
+    }
+
+    private val _deviceLabel = flow(p.getString("device_label", null) ?: defaultDeviceLabel())
     /** How this phone names itself to Rex (shown in client lists), like the iPad's "iPad". */
     val deviceLabel: StateFlow<String> = _deviceLabel
     fun setDeviceLabel(v: String) { p.edit().putString("device_label", v).apply(); _deviceLabel.value = v }

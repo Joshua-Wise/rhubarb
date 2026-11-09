@@ -55,7 +55,7 @@ class RexControl(
     val baseUrl: String,
     private val scope: CoroutineScope,
     private val clientName: String = "Rhubarb",
-    /** The client's label, shown in Rex's client lists (e.g. "Pixel"). */
+    /** The client's label, shown in Rex's client lists (e.g. "Pixel 9"). */
     private val clientLabel: () -> String? = { null },
     private val onConnected: suspend (RexControl, ConnState.Connected) -> Unit = { _, _ -> },
 ) {
