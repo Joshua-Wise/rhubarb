@@ -13,6 +13,17 @@ unofficial client built on the API that every Rex server documents about itself 
 | :---: | :---: | :---: | :---: |
 | <img src="store/screenshots/1-home.png" alt="Home screen: sessions and tabs, each with the coding agent running in it" width="200"> | <img src="store/screenshots/2-terminal.png" alt="A pane running Claude Code, drawn by Ghostty, with the phone key bar" width="200"> | <img src="store/screenshots/3-new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> | <img src="store/screenshots/4-notification.png" alt="A notification that Claude Code finished" width="200"> |
 
+## Get it
+
+Rhubarb is in a closed test on Google Play ahead of its public release. To join:
+
+1. Join the [tester group](https://groups.google.com/a/jwise.dev/g/rhubarb-testers) with the Google account on your phone.
+2. [Opt in to the test](https://play.google.com/apps/testing/dev.jwise.rhubarb).
+3. [Install from Google Play](https://play.google.com/store/apps/details?id=dev.jwise.rhubarb).
+
+Or download the APK from [Releases](https://github.com/Joshua-Wise/rhubarb/releases/latest). Play and
+GitHub builds are signed differently and can't update each other, so stick with one.
+
 ## What it does
 
 - **Sessions at a glance**: every session, window, and terminal on your Mac, with each
