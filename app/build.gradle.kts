@@ -16,14 +16,31 @@ android {
         versionName = "0.14.1"
     }
 
+    // The Play upload key lives outside the repo. Its location and password come from
+    // ~/.gradle/gradle.properties (RHUBARB_UPLOAD_STORE_FILE, RHUBARB_UPLOAD_PASSWORD);
+    // without them, release builds fall back to the debug key so anyone can still build.
+    val uploadStore = providers.gradleProperty("RHUBARB_UPLOAD_STORE_FILE").orNull
+        ?.let { file(it.replaceFirst("~", System.getProperty("user.home"))) }
+        ?.takeIf { it.exists() }
+    val uploadPassword = providers.gradleProperty("RHUBARB_UPLOAD_PASSWORD").orNull
+
+    signingConfigs {
+        if (uploadStore != null && uploadPassword != null) {
+            create("upload") {
+                storeFile = uploadStore
+                storePassword = uploadPassword
+                keyAlias = providers.gradleProperty("RHUBARB_UPLOAD_KEY_ALIAS").orNull ?: "upload"
+                keyPassword = uploadPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Debug-signed so it can be sideloaded without a keystore. Swap in a real
-            // signing config before distributing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {
