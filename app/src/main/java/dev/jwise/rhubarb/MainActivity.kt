@@ -26,6 +26,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.jwise.rhubarb.service.Notifier
 import dev.jwise.rhubarb.ui.HomeScreen
+import dev.jwise.rhubarb.ui.IncomingShare
+import dev.jwise.rhubarb.ui.ShareInbox
+import dev.jwise.rhubarb.ui.ShareTargetSheet
 import dev.jwise.rhubarb.ui.RexTheme
 import dev.jwise.rhubarb.ui.SettingsScreen
 import dev.jwise.rhubarb.ui.ServerScreen
@@ -51,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(i: Intent?) {
         val s = i?.getStringExtra(Notifier.EXTRA_SESSION); val b = i?.getStringExtra(Notifier.EXTRA_BLOCK)
         if (s != null && b != null) deepLink.value = s to b
+        IncomingShare.from(i)?.let { ShareInbox.waiting.value = it }
     }
 
     override fun onStart() { super.onStart(); (application as RexApp).acquire() }
@@ -70,6 +74,19 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
             nav.navigate("term/${l.first}/${l.second}") { launchSingleTop = true }
             deepLink.value = null
         }
+    }
+
+    // Something shared from another app: pick a tab once there's a server, then open it there.
+    val share by ShareInbox.waiting.collectAsState()
+    share?.takeIf { hasServer }?.let { sh ->
+        ShareTargetSheet(
+            sh,
+            onPick = { sid, bid ->
+                ShareInbox.deliver(bid, sh)
+                nav.navigate("term/$sid/$bid") { popUpTo("home") }
+            },
+            onDismiss = { ShareInbox.waiting.value = null },
+        )
     }
 
     NavHost(nav, startDestination = if (hasServer) "home" else "server") {

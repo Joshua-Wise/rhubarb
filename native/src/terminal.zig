@@ -1678,3 +1678,68 @@ export fn Java_dev_jwise_rhubarb_ghostty_GhosttyBridge_nativeSelectAll(
     defer allocator.free(text);
     return jniNewStringUTF(env, text.ptr);
 }
+
+/// Finds `needle` (case-insensitive for ASCII) on the active screen and in its scrollback,
+/// newest match first, using Ghostty's own page search. Returns up to `max` matches as a flat
+/// int array of [start_screen_y, start_x, end_screen_y, end_x] (end inclusive), in screen
+/// coordinates (the same space as viewport_scroll_y).
+export fn Java_dev_jwise_rhubarb_ghostty_GhosttyBridge_nativeSearch(
+    env: *c.JNIEnv,
+    thiz: c.jobject,
+    handle: c.jlong,
+    needle_jstring: c.jstring,
+    max: c.jint,
+) callconv(.c) c.jintArray {
+    _ = thiz;
+    const terminal = chuchuFromHandle(handle) orelse return null;
+    if (needle_jstring == null or max <= 0) return null;
+    const chars = env.*.*.GetStringUTFChars.?(env, needle_jstring, null) orelse return null;
+    defer env.*.*.ReleaseStringUTFChars.?(env, needle_jstring, chars);
+    const needle = std.mem.span(chars);
+    if (needle.len == 0) return null;
+
+    const pages = &terminal.terminal.screens.active.pages;
+    const last = pages.pages.last orelse return null;
+    var search = ghostty.search.PageList.init(allocator, needle, pages, last) catch return null;
+    defer search.deinit();
+
+    var out: std.ArrayList(c.jint) = .empty;
+    defer out.deinit(allocator);
+    const limit: usize = @intCast(max);
+    outer: while (true) {
+        while (search.next()) |h| {
+            const start = pages.pointFromPin(.screen, h.startPin()) orelse continue;
+            const end = pages.pointFromPin(.screen, h.endPin()) orelse continue;
+            out.appendSlice(allocator, &.{
+                @intCast(start.screen.y), @intCast(start.screen.x),
+                @intCast(end.screen.y),   @intCast(end.screen.x),
+            }) catch break :outer;
+            if (out.items.len / 4 >= limit) break :outer;
+        }
+        const more = search.feed() catch break;
+        if (!more) break;
+    }
+
+    const arr = env.*.*.NewIntArray.?(env, @intCast(out.items.len)) orelse return null;
+    if (out.items.len > 0) env.*.*.SetIntArrayRegion.?(env, arr, 0, @intCast(out.items.len), out.items.ptr);
+    return arr;
+}
+
+/// Scrolls the viewport (never the program) so screen row `screen_y` sits `rows_above` rows
+/// below the top, clamped by Ghostty to the scrollback.
+export fn Java_dev_jwise_rhubarb_ghostty_GhosttyBridge_nativeScrollToRow(
+    env: *c.JNIEnv,
+    thiz: c.jobject,
+    handle: c.jlong,
+    screen_y: c.jint,
+    rows_above: c.jint,
+) callconv(.c) void {
+    _ = env;
+    _ = thiz;
+    const terminal = chuchuFromHandle(handle) orelse return;
+    const pages = &terminal.terminal.screens.active.pages;
+    const top = pages.pointFromPin(.screen, pages.getTopLeft(.viewport)) orelse return;
+    const delta: isize = @as(isize, screen_y) - @as(isize, rows_above) - @as(isize, @intCast(top.screen.y));
+    if (delta != 0) terminal.terminal.scrollViewport(.{ .delta = delta });
+    update_render_state(terminal);
+}

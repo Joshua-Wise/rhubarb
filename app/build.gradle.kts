@@ -12,8 +12,8 @@ android {
         applicationId = "dev.jwise.rhubarb"
         minSdk = 28
         targetSdk = 37
-        versionCode = 33
-        versionName = "0.14.2"
+        versionCode = 34
+        versionName = "0.15.0"
         // Ship librexterm's symbol table inside the bundle so Play can name native frames.
         ndk { debugSymbolLevel = "SYMBOL_TABLE" }
     }
@@ -74,6 +74,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.5")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // QR scanning for server addresses: ZXing, fully on-device (no Google Play services or analytics).
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }

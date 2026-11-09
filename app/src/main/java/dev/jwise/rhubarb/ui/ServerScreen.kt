@@ -1,6 +1,14 @@
 package dev.jwise.rhubarb.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +51,38 @@ fun ServerScreen(onSaved: () -> Unit) {
     var result by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
+    fun connect() {
+        busy = true; result = null
+        scope.launch {
+            // Test with a throwaway connection before saving.
+            val c = RexControl(RexControl.normalizeBase(url), app.scope, "Rhubarb (setup)")
+            c.start()
+            val st = withTimeoutOrNull(12_000) { c.state.first { it is ConnState.Connected || it is ConnState.Failed } }
+            result = when (st) {
+                is ConnState.Connected -> {
+                    val who = try {
+                        c.call("server.whoami")?.jsonObject?.get("principal")?.jsonObject?.get("display")?.jsonPrimitive?.contentOrNull
+                    } catch (e: Exception) { null }
+                    c.stop()
+                    if (RexControl.normalizeBase(url) != app.serverUrl?.let { RexControl.normalizeBase(it) }) app.settings.setHostLabel(null)
+                    app.serverUrl = url.trim()
+                    app.settings.rememberHost(app.settings.hostLabel.value ?: app.defaultHostLabel(), url.trim())
+                    busy = false
+                    onSaved()
+                    "Connected as $who"
+                }
+                is ConnState.Failed -> { c.stop(); "Couldn't connect: ${st.reason}" }
+                else -> { c.stop(); "Timed out. Is Tailscale on and connected on this phone?" }
+            }
+            busy = false
+        }
+    }
+
+    // Rex's own pairing code (`rex server tailscale pair`) is just the server's address.
+    val scan = rememberLauncherForActivityResult(ScanContract()) { r ->
+        r.contents?.trim()?.takeIf { it.isNotEmpty() }?.let { url = it; connect() }
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Connect to Rex") }) }) { pad ->
         Column(
             Modifier.padding(pad).padding(20.dp).fillMaxSize(),
@@ -51,7 +91,7 @@ fun ServerScreen(onSaved: () -> Unit) {
             Text(
                 "Your Mac's Rex server is reachable over Tailscale. Install Tailscale on this phone, " +
                     "sign in with the same account, then enter the server's address. On the Mac, " +
-                    "`rex server status` shows it on the https: line (or `rex server tailscale pair` shows it as a QR code).",
+                    "`rex server status` shows it on the https: line, or run `rex server tailscale pair` and scan its QR code.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             OutlinedTextField(
@@ -62,35 +102,22 @@ fun ServerScreen(onSaved: () -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(
-                enabled = url.isNotBlank() && !busy,
-                onClick = {
-                    busy = true; result = null
-                    scope.launch {
-                        // Test with a throwaway connection before saving.
-                        val c = RexControl(RexControl.normalizeBase(url), app.scope, "Rhubarb (setup)")
-                        c.start()
-                        val st = withTimeoutOrNull(12_000) { c.state.first { it is ConnState.Connected || it is ConnState.Failed } }
-                        result = when (st) {
-                            is ConnState.Connected -> {
-                                val who = try {
-                                    c.call("server.whoami")?.jsonObject?.get("principal")?.jsonObject?.get("display")?.jsonPrimitive?.contentOrNull
-                                } catch (e: Exception) { null }
-                                c.stop()
-                                if (RexControl.normalizeBase(url) != app.serverUrl?.let { RexControl.normalizeBase(it) }) app.settings.setHostLabel(null)
-                                app.serverUrl = url.trim()
-                                app.settings.rememberHost(app.settings.hostLabel.value ?: app.defaultHostLabel(), url.trim())
-                                busy = false
-                                onSaved()
-                                "Connected as $who"
-                            }
-                            is ConnState.Failed -> { c.stop(); "Couldn't connect: ${st.reason}" }
-                            else -> { c.stop(); "Timed out. Is Tailscale on and connected on this phone?" }
-                        }
-                        busy = false
-                    }
-                },
-            ) { if (busy) CircularProgressIndicator(Modifier.padding(end = 8.dp)) ; Text("Connect") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = url.isNotBlank() && !busy,
+                    onClick = { connect() },
+                ) { if (busy) CircularProgressIndicator(Modifier.padding(end = 8.dp)) ; Text("Connect") }
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = {
+                        scan.launch(ScanOptions()
+                            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            .setPrompt("Scan the code from \"rex server tailscale pair\" on your Mac")
+                            .setBeepEnabled(false)
+                            .setOrientationLocked(false))
+                    },
+                ) { Icon(Icons.Default.QrCodeScanner, null, Modifier.padding(end = 8.dp)); Text("Scan QR code") }
+            }
             result?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }

@@ -1,6 +1,6 @@
 # Rhubarb Privacy Policy
 
-_Last updated: November 9, 2026_
+_Last updated: November 9, 2026 (camera and sharing added for version 0.15)_
 
 Rhubarb is an unofficial Android client for [Rex](https://superlogical.com), a terminal app for the Mac. It connects your Android device to a Rex server that you run yourself. Rhubarb is not affiliated with Superlogical.
 
@@ -37,13 +37,16 @@ When you turn on alerts, Rhubarb keeps a connection to your Rex server in the ba
 
 When you share terminal output or a link, Rhubarb hands it to Android's share sheet. Where it goes from there is your choice.
 
+When you share text or images from another app to Rhubarb, it sends them only to the tab you pick on your own Rex server.
+
 ## Permissions
 
 - **Internet and network state:** to connect to your Rex server.
 - **Notifications:** to alert you when a session needs your attention.
 - **Foreground service:** to keep the connection to your server open in the background while alerts are on.
+- **Camera:** only when you tap **Scan QR code** to add a server, and only if you allow it. The camera image is read on your device to find the code and is never saved or sent anywhere.
 
-Rhubarb doesn't ask for access to your contacts, location, camera, microphone or files. Images come only from items you pick yourself.
+Rhubarb doesn't ask for access to your contacts, location, microphone or files. Images come only from items you pick or share yourself.
 
 ## Google Play
 

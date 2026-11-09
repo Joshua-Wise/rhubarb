@@ -75,4 +75,8 @@ class GhosttyBridge {
     external fun nativeSelectWordAt(handle: Long, cellX: Int, cellY: Int): String?
     external fun nativeSelectLineAt(handle: Long, cellX: Int, cellY: Int): String?
     external fun nativeSelectAll(handle: Long): String?
+    /** Matches for [needle], newest first: [startY, startX, endY, endX] per match, screen coordinates. */
+    external fun nativeSearch(handle: Long, needle: String, max: Int): IntArray?
+    /** Scroll the viewport so screen row [screenY] sits [rowsAbove] rows from the top. */
+    external fun nativeScrollToRow(handle: Long, screenY: Int, rowsAbove: Int)
 }

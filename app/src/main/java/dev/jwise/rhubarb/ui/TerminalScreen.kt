@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.RestartAlt
@@ -72,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.jwise.rhubarb.RexApp
+import dev.jwise.rhubarb.ghostty.SearchMatch
 import dev.jwise.rhubarb.rex.RexHub
 import dev.jwise.rhubarb.rex.TermEvent
 import dev.jwise.rhubarb.rex.TerminalStream
@@ -196,6 +198,43 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             }
         }
     }
+    fun pasteText(text: String) {
+        jumpToLive()
+        inputs.trySend {
+            h.control.call("block.event", buildJsonObject {
+                put("session_id", sessionId); put("block_id", blockId)
+                put("event", buildJsonObject { put("type", "paste"); put("payload", buildJsonObject { put("text", text) }) })
+            })
+        }
+    }
+
+    // Text or images shared from another app to this pane: pasted (not sent), or uploaded.
+    val shareTick by ShareInbox.deliveries.collectAsState()
+    LaunchedEffect(shareTick) {
+        val share = ShareInbox.take(blockId) ?: return@LaunchedEffect
+        share.text?.let(::pasteText)
+        if (share.images.isNotEmpty()) sendImages(share.images)
+    }
+
+    // Find in scrollback (Ghostty renderer): matches oldest first; the newest is shown first.
+    var finding by remember { mutableStateOf(false) }
+    var findQuery by remember { mutableStateOf("") }
+    var matches by remember { mutableStateOf(emptyList<SearchMatch>()) }
+    var matchIndex by remember { mutableStateOf(-1) }
+    LaunchedEffect(finding, findQuery) {
+        if (!finding || findQuery.isEmpty()) { matches = emptyList(); matchIndex = -1; return@LaunchedEffect }
+        delay(150)
+        val found = ghostty.search(findQuery)
+        matches = found; matchIndex = found.lastIndex
+        found.lastOrNull()?.let(ghostty::reveal)
+    }
+    fun stepMatch(d: Int) {
+        if (matches.isEmpty()) return
+        matchIndex = (matchIndex + d).mod(matches.size)
+        ghostty.reveal(matches[matchIndex])
+    }
+    fun closeFind() { finding = false; findQuery = ""; ghostty.scrollToBottom() }
+
     val pickImages = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         sendImages(uris.map { it to null })
     }
@@ -352,6 +391,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                                     }
                                 }
                             }
+                            if (useGhostty) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Icons.Default.Search, null) },
+                                onClick = { paneMenu = false; compose = false; finding = true })
                             DropdownMenuItem(text = { Text("Share output") }, leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = { run("share it") { sharePaneText(ctx, h, sessionId, blockId, window?.label ?: "Terminal") } })
                             DropdownMenuItem(text = { Text("Clear screen") }, leadingIcon = { Icon(Icons.Default.ClearAll, null) },
@@ -369,7 +410,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 if (useGhostty) {
                     GhosttyPane(
                         ghostty = ghostty, zoom = zoom, fitToWidth = !owned, background = palette.bg,
-                        onTap = { if (!compose) inputView.showKeyboard() },
+                        onTap = { if (!compose && !finding) inputView.showKeyboard() },
+                        searchMatches = matches,
+                        currentMatch = matches.getOrNull(matchIndex),
                         onWheelInput = { bytes -> send(String(bytes, Charsets.UTF_8)) },
                         onCanvasGrid = { canvasGrid = it },
                     )
@@ -383,7 +426,11 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                         onCancel = { uploadJob?.cancel(); upload = null })
                 }
             }
-            KeyBar(
+            if (finding) FindBar(
+                query = findQuery, onQuery = { findQuery = it },
+                count = matches.size, position = if (matchIndex < 0) 0 else matches.size - matchIndex,
+                onOlder = { stepMatch(-1) }, onNewer = { stepMatch(1) }, onClose = ::closeFind,
+            ) else KeyBar(
                 mods, onKey = ::key,
                 compose = compose,
                 onKeyboard = { compose = false; inputView.showKeyboard() },
@@ -394,14 +441,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     val imageUri = clip?.getItemAt(0)?.uri?.takeIf { clip.description.hasMimeType("image/*") }
                     if (imageUri != null) {
                         sendImages(listOf(imageUri to clip.description.getMimeType(0)))
-                    } else clip?.getItemAt(0)?.coerceToText(ctx)?.toString()?.let { text ->
-                        inputs.trySend {
-                            h.control.call("block.event", buildJsonObject {
-                                put("session_id", sessionId); put("block_id", blockId)
-                                put("event", buildJsonObject { put("type", "paste"); put("payload", buildJsonObject { put("text", text) }) })
-                            })
-                        }
-                    }
+                    } else clip?.getItemAt(0)?.coerceToText(ctx)?.toString()?.let(::pasteText)
                 },
             )
             if (compose) {

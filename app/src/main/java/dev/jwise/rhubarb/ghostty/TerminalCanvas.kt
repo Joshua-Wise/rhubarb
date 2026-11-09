@@ -80,6 +80,9 @@ fun TerminalCanvas(
     onSelectionChanged: (TerminalSelectionState?) -> Unit = {},
     // Rhubarb: long-pressing a link calls this instead of starting a selection.
     onLinkLongPress: ((url: String) -> Unit)? = null,
+    // Rhubarb: find-in-scrollback matches to tint, and which one is current.
+    searchMatches: List<SearchMatch> = emptyList(),
+    currentMatch: SearchMatch? = null,
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -636,6 +639,18 @@ fun TerminalCanvas(
                     i = j
                 }
 
+                // Rhubarb: find-in-scrollback matches on this row, behind the text.
+                if (searchMatches.isNotEmpty()) {
+                    val sy = snapshot.viewportScrollY + row
+                    for (m in searchMatches) {
+                        if (sy < m.startY || sy > m.endY) continue
+                        val x0 = if (sy == m.startY) m.startX else 0
+                        val x1 = if (sy == m.endY) m.endX + 1 else cols
+                        bgPaint.color = if (m == currentMatch) 0xFFF59E0B.toInt() else 0x66FACC15
+                        nCanvas.drawRect(x0 * cellWidth, y, x1 * cellWidth, y + cellHeight, bgPaint)
+                    }
+                }
+
                 // Text runs
                 i = rowStart
                 while (i < rowEnd) {
@@ -1099,3 +1114,6 @@ internal fun fitTransform(canvasW: Float, canvasH: Float, contentW: Float, conte
         ((canvasH - contentH * scale) * 0.5f).coerceAtLeast(0f),
     )
 }
+
+/** A find-in-scrollback match in screen coordinates (rows count from the top of the scrollback; end inclusive). */
+data class SearchMatch(val startY: Int, val startX: Int, val endY: Int, val endX: Int)

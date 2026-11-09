@@ -116,6 +116,19 @@ class GhosttyTerminal(private val scope: CoroutineScope) {
         }
     }
 
+    /** Matches for [query] on screen and in scrollback, oldest first (empty if none). */
+    suspend fun search(query: String, max: Int = 2000): List<SearchMatch> {
+        if (!available || closed || query.isEmpty()) return emptyList()
+        return withContext(dispatcher) {
+            if (handle == 0L) return@withContext emptyList()
+            val a = bridge.nativeSearch(handle, query, max) ?: return@withContext emptyList()
+            List(a.size / 4) { i -> SearchMatch(a[i * 4], a[i * 4 + 1], a[i * 4 + 2], a[i * 4 + 3]) }.asReversed()
+        }
+    }
+
+    /** Scroll so [m] sits a little below the middle of the grid, visible even when the phone shows only its bottom part. */
+    fun reveal(m: SearchMatch) = run { bridge.nativeScrollToRow(handle, m.startY, rows * 3 / 5); publishSoon() }
+
     /** Return to live output (e.g. after typing while scrolled back). */
     fun scrollToBottom() = run { bridge.nativeScrollToActive(handle); publishSoon() }
 

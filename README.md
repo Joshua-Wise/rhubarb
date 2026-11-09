@@ -34,8 +34,13 @@ GitHub builds are signed differently and can't update each other, so stick with 
   to rename, reorder, share its output, clear it or close its tab; hold a session's header to
   rename, reorder or end it. Panes running coding agents show the agent's mark (Claude Code,
   Codex, Gemini, Copilot, OpenCode, Cursor, Qwen, Mistral, Ollama; most marks from Simple Icons).
-- **In a pane**: ⋮ shares the screen and scrollback as text (a .txt file when it's long), clears
-  the screen, or resets the terminal.
+- **In a pane**: ⋮ → Find searches the screen and scrollback (matches highlighted, up/down to
+  step through them); ⋮ also shares the screen and scrollback as text (a .txt file when it's
+  long), clears the screen, or resets the terminal.
+- **Share into a pane**: share text or images from any app to Rhubarb and pick a tab. Text is
+  pasted at the prompt (not sent), and images go to the Mac like the image button.
+- **Add a server by QR**: run `rex server tailscale pair` on the Mac and tap **Scan QR code**
+  on the Connect screen. Scanning happens on the phone with ZXing; nothing is sent anywhere.
 - **Settings** shows the Rex server's version and Tailscale name. Hold a saved host to forget it.
 - **"Needs you" alerts**: programs report status with OSC 7501, and Claude Code does. When
   one goes `blocked` (permission, question, or password), you get a high-priority notification
@@ -133,4 +138,5 @@ app/src/main/assets/term/ xterm.js 5.5.0 (MIT) host page
 ## License
 
 [MIT](LICENSE). Bundled third-party pieces keep their own licenses: Ghostty's terminal engine
-and xterm.js are MIT, and the agent marks come from Simple Icons (CC0; the Copilot mark is MIT).
+and xterm.js are MIT, the QR scanner (ZXing and zxing-android-embedded) is Apache 2.0, and the
+agent marks come from Simple Icons (CC0; the Copilot mark is MIT).

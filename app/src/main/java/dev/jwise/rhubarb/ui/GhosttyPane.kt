@@ -59,6 +59,8 @@ fun GhosttyPane(
     background: String,
     onTap: () -> Unit,
     onWheelInput: (ByteArray) -> Unit,
+    searchMatches: List<dev.jwise.rhubarb.ghostty.SearchMatch> = emptyList(),
+    currentMatch: dev.jwise.rhubarb.ghostty.SearchMatch? = null,
     onCanvasGrid: (IntArray) -> Unit,
 ) {
     val snapshot by ghostty.snapshot.collectAsState()
@@ -87,6 +89,8 @@ fun GhosttyPane(
                 onSelectionChange = { selection = it },
                 onSelectionChanged = { selectedText = it?.text },
                 onLinkLongPress = { link = it },
+                searchMatches = searchMatches,
+                currentMatch = currentMatch,
                 onTap = onTap,
                 onScroll = { delta, x, y ->
                     scope.launch { ghostty.scroll(delta, x, y)?.let(onWheelInput) }
