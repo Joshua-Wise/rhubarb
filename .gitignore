@@ -10,3 +10,8 @@ local.properties
 zig-out/
 native/zig-pkg/
 app/src/main/jniLibs/
+
+# Signing keys and their passwords never go in the repo.
+*.jks
+*.keystore
+keystore.properties
