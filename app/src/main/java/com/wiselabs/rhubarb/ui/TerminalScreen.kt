@@ -134,8 +134,6 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     var zoom by remember { mutableFloatStateOf(1f) }
     var owned by remember { mutableStateOf(false) }
     var paneOwner by remember { mutableStateOf<String?>(null) } // from Rex's size messages
-    var takenAway by remember { mutableStateOf(0) }            // times another device took the pane
-    var takeBackNote by remember { mutableStateOf<String?>(null) }
     val autoFit by app.settings.fitToPhone.collectAsState()
     var gridSize by remember { mutableStateOf("") }
 
@@ -289,18 +287,17 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
 
     // Fit to phone on open (and again when the canvas changes size, e.g. the keyboard opens),
     // unless turned off in Settings.
-    // If another device (the Mac) takes the pane while it's open here, take it back, waiting
-    // longer each time it insists so the two don't fight.
+    // If another device (the Mac) takes the pane while the phone has it, hand it over: forget
+    // the saved size (the Mac sets its own now) and go back to the pane list.
     val conn by h.control.state.collectAsState()
     val myId = (conn as? com.wiselabs.rhubarb.rex.ConnState.Connected)?.clientId
-    LaunchedEffect(paneOwner, owned, autoFit, myId) {
+    LaunchedEffect(paneOwner, owned, myId) {
         val other = paneOwner
-        if (!autoFit || !owned || myId.isNullOrEmpty() || other.isNullOrEmpty() || other == myId) { takeBackNote = null; return@LaunchedEffect }
-        val wait = listOf(2, 5, 15, 30, 60)[takenAway.coerceAtMost(4)]
-        takenAway++
-        for (left in wait downTo 1) { takeBackNote = "another device has it · taking back in ${left}s"; delay(1000) }
-        takeBackNote = null
-        takeOver(h, sessionId, blockId) { phoneGrid() }
+        if (!owned || myId.isNullOrEmpty() || other.isNullOrEmpty() || other == myId) return@LaunchedEffect
+        owned = false
+        forgetMacSize(blockId)
+        android.widget.Toast.makeText(ctx, "Another device took this pane", android.widget.Toast.LENGTH_SHORT).show()
+        onBack()
     }
 
     LaunchedEffect(canvasGrid?.toList(), autoFit) {
@@ -321,7 +318,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                         Text(window?.label ?: "Terminal", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val sub = listOfNotNull(
                             jsLog,
-                            takeBackNote ?: status,
+                            status,
                             statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },
                             gridSize.ifBlank { null },
@@ -423,6 +420,8 @@ private suspend fun xtermPhoneGrid(webView: WebView): PhoneGrid? = try {
  * phone's size. Kept for the app's lifetime so a quick reopen doesn't record the phone's size.
  */
 private val macSizes = java.util.concurrent.ConcurrentHashMap<String, JsonObject>()
+
+private fun forgetMacSize(blockId: String) { macSizes.remove(blockId) }
 
 /** Claim the block so its size follows this phone, then size it to [grid]. */
 private suspend fun takeOver(h: RexHub, sessionId: String, blockId: String, grid: suspend () -> PhoneGrid?): Boolean = try {
