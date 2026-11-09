@@ -12,8 +12,8 @@ android {
         applicationId = "dev.jwise.rhubarb"
         minSdk = 28
         targetSdk = 37
-        versionCode = 30
-        versionName = "0.14.0"
+        versionCode = 31
+        versionName = "0.14.1"
     }
 
     buildTypes {

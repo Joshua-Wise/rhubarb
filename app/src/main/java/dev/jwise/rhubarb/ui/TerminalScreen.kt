@@ -226,7 +226,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 tap = { post { if (!compose) inputView.showKeyboard() } },
                 wheel = { n, c, r -> wheel(n, c, r) },
             ), "Android")
-            loadUrl("file:///android_asset/term/index.html")
+            // Only the xterm.js renderer uses the page; with Ghostty it would sit unsized and log.
+            if (!useGhostty) loadUrl("file:///android_asset/term/index.html")
         }
     }
     // Calls made before the page is ready are queued, in order, and run once it is.
@@ -320,7 +321,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     Column {
                         Text(window?.label ?: "Terminal", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val sub = listOfNotNull(
-                            jsLog,
+                            jsLog.takeIf { !useGhostty },
                             status,
                             statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },

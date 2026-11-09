@@ -158,6 +158,8 @@ fun TerminalCanvas(
     val singlePaintChoiceCache = remember(primaryTypeface, symbolsTypeface, fallbackTypeface) {
         HashMap<Int, Int>(256)
     }
+    // Rhubarb: codepoints no font on the phone can draw, swapped for a close look-alike.
+    val substituteCache = remember(primaryTypeface, fallbackTypeface) { HashMap<Int, Int>(16) }
     // Multi-codepoint grapheme cluster paint choice cache.
     val clusterPaintChoiceCache = remember(primaryTypeface, symbolsTypeface, fallbackTypeface) {
         HashMap<String, Int>(64)
@@ -637,7 +639,7 @@ fun TerminalCanvas(
                 // Text runs
                 i = rowStart
                 while (i < rowEnd) {
-                    val cp = snapshot.codepoints[i]
+                    val cp = displayCodepoint(snapshot.codepoints[i], substituteCache, primaryTextPaint, fallbackTextPaint, emojiTextPaint)
                     if (cp == 0 || cp == 32) {
                         i++
                         continue
@@ -682,7 +684,7 @@ fun TerminalCanvas(
                     var j = if (firstIsWide) i + 2 else i + 1
 
                     while (j < rowEnd) {
-                        val c = snapshot.codepoints[j]
+                        val c = displayCodepoint(snapshot.codepoints[j], substituteCache, primaryTextPaint, fallbackTextPaint, emojiTextPaint)
                         if (c == 0) break
                         if (c == 32 && !snapshot.isSpacerContinuation(j)) break
                         if (j + 1 < rowEnd && snapshot.isSpacerContinuation(j + 1)) break
@@ -979,6 +981,25 @@ private const val PAINT_EMOJI: Int = 3
  *     paint that can shape emoji ZWJ sequences, regional-indicator flag
  *     pairs, and VS16-promoted color emoji.
  */
+/**
+ * Rhubarb: Android ships no font with some symbols programs print, such as Claude Code's
+ * ⏵⏵ (U+23F5), which would draw as empty boxes. When no paint has the glyph, use a look-alike.
+ */
+private val lookAlikes = mapOf(
+    0x23F4 to 0x25C2, 0x23F5 to 0x25B8, 0x23F6 to 0x25B4, 0x23F7 to 0x25BE, // ⏴⏵⏶⏷ → ◂▸▴▾
+    0x23F8 to 0x2016, 0x23F9 to 0x25A0, 0x23FA to 0x25CF,                  // ⏸⏹⏺ → ‖■●
+    0x23E9 to 0x00BB, 0x23EA to 0x00AB,                                    // ⏩⏪ → »«
+)
+
+private fun displayCodepoint(cp: Int, cache: HashMap<Int, Int>, primary: Paint, fallback: Paint, emoji: Paint): Int {
+    if (cp < 0x2000) return cp
+    val alt = lookAlikes[cp] ?: return cp
+    return cache.getOrPut(cp) {
+        val g = String(Character.toChars(cp))
+        if (primary.hasGlyph(g) || fallback.hasGlyph(g) || emoji.hasGlyph(g)) cp else alt
+    }
+}
+
 private fun pickPaintChoice(
     glyph: String,
     cache: HashMap<String, Int>,
