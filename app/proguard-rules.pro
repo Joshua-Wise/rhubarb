@@ -9,4 +9,4 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 # librexterm's JNI entry points are bound by class and method name.
--keep class com.wiselabs.rhubarb.ghostty.GhosttyBridge { native <methods>; *; }
+-keep class dev.jwise.rhubarb.ghostty.GhosttyBridge { native <methods>; *; }

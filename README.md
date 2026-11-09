@@ -101,7 +101,7 @@ adb install -r ~/Library/Caches/rexAndroid/app/outputs/apk/debug/app-debug.apk
 ## Layout
 
 ```
-app/src/main/java/com/wiselabs/rhubarb/
+app/src/main/java/dev/jwise/rhubarb/
   rex/RexControl.kt      control WebSocket: hello/welcome, requests, events, reconnect token
   rex/TerminalStream.kt  data WebSocket: ticket HELLO, RESUME w/ exact byte count, APC parsing
   rex/RexHub.kt          live model: sessions, views, titles, program statuses
