@@ -5,9 +5,9 @@ Superlogical. Superlogical ships macOS (and is working on iOS); this app is an i
 unofficial client built on the API that every Rex server documents about itself at
 `GET /llms.txt`. Rhubarb collects no data; see the [privacy policy](https://jwise.dev/rhubarb/privacy/).
 
-> **Built with AI assistance.** Rhubarb was developed by Josh Wise with the help of AI coding
-> tools (Claude Code by Anthropic). Josh directed the work and tested each change on real devices
-> against a real Rex server; the AI wrote much of the code under that direction.
+> **Built with AI assistance.** Rhubarb was developed with the help of AI coding tools (Claude
+> Code by Anthropic). I directed, reviewed and tested each change on real devices against a real
+> Rex server; the AI wrote much of the code under that direction.
 
 | Sessions | Terminal | New session | Alerts |
 | :---: | :---: | :---: | :---: |
