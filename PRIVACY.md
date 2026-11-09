@@ -59,4 +59,4 @@ If this policy changes, the new version will be posted here with a new date.
 
 ## Contact
 
-Questions about this policy: CONTACT_EMAIL_HERE
+Questions about this policy: [josh@jwise.dev](mailto:josh@jwise.dev)

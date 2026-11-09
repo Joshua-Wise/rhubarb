@@ -3,7 +3,7 @@
 An Android companion for [Rex](https://www.superlogical.com/), the terminal multiplexer from
 Superlogical. Superlogical ships macOS (and is working on iOS); this app is an independent,
 unofficial client built on the API that every Rex server documents about itself at
-`GET /llms.txt`.
+`GET /llms.txt`. Rhubarb collects no data; see the [privacy policy](https://jwise.dev/rhubarb/privacy/).
 
 | Sessions | Terminal | New session | Alerts |
 | :---: | :---: | :---: | :---: |
