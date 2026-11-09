@@ -12,8 +12,8 @@ android {
         applicationId = "com.wiselabs.rhubarb"
         minSdk = 28
         targetSdk = 37
-        versionCode = 28
-        versionName = "0.12.3"
+        versionCode = 29
+        versionName = "0.13.0"
     }
 
     buildTypes {

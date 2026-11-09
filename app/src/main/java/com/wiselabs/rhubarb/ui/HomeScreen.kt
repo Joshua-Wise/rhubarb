@@ -5,6 +5,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -79,6 +84,19 @@ import kotlinx.coroutines.launch
 
 private data class Pane(val sessionId: String, val windowId: String, val blockId: String, val session: String, val window: String, val label: String, val multi: Boolean)
 
+/** A destructive action waiting for the user to confirm it. */
+private class Confirm(val title: String, val text: String, val action: String, val run: suspend (com.wiselabs.rhubarb.rex.RexHub) -> Unit)
+
+@Composable
+private fun MenuItem(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, danger: Boolean = false, onClick: () -> Unit) {
+    val color = if (danger) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified
+    DropdownMenuItem(
+        text = { Text(text, color = color) },
+        leadingIcon = { Icon(icon, null, tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) },
+        onClick = onClick,
+    )
+}
+
 /** What a rename dialog is renaming: a window when [windowId] is set, else the session. */
 private data class Rename(val sessionId: String, val windowId: String?, val current: String)
 
@@ -114,13 +132,25 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             } finally { busy = false }
         }
     }
-    fun create(target: String, name: String) {
+    // Long-press menus ("p:<block>" or "s:<session>") and the confirmation for closing things.
+    var menuFor by remember { mutableStateOf<String?>(null) }
+    var confirm by remember { mutableStateOf<Confirm?>(null) }
+    fun act(what: String, op: suspend (com.wiselabs.rhubarb.rex.RexHub) -> Unit) {
+        val h = hub ?: return
+        menuFor = null
+        scope.launch {
+            try { op(h) } catch (e: Exception) {
+                android.widget.Toast.makeText(ctx, "Couldn't $what: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    fun create(target: String, name: String, cwd: String?, run: String?) {
         val h = hub ?: return
         busy = true
         scope.launch {
             try {
-                if (target.isEmpty()) { val (sid, bid) = h.createSession(name); creating = null; onOpen(sid, bid) }
-                else { val bid = h.newWindow(target, name); creating = null; onOpen(target, bid) }
+                if (target.isEmpty()) { val (sid, bid) = h.createSession(name, cwd, run); creating = null; onOpen(sid, bid) }
+                else { val bid = h.newWindow(target, name, cwd, run); creating = null; onOpen(target, bid) }
             } catch (e: Exception) {
                 android.widget.Toast.makeText(ctx, "Couldn't create it: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
             } finally { busy = false }
@@ -239,12 +269,14 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                     val isCollapsed = s.sessionId in collapsed.value
                     item(key = "h" + s.sessionId) {
                         val rot by animateFloatAsState(if (isCollapsed) -90f else 0f, label = "chevron")
+                        val si = sessions.indexOf(s)
+                        androidx.compose.foundation.layout.Box {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().combinedClickable(
                                 onClick = { collapsed.value = if (isCollapsed) collapsed.value - s.sessionId else collapsed.value + s.sessionId },
-                                onLongClickLabel = "Rename session",
-                                onLongClick = { renaming = Rename(s.sessionId, null, s.label) },
+                                onLongClickLabel = "Session options",
+                                onLongClick = { menuFor = "s:" + s.sessionId },
                             ).padding(start = 32.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
                         ) {
                             Text(s.label.ifBlank { "Session" }, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
@@ -259,14 +291,36 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ExpandMore, if (isCollapsed) "Expand" else "Collapse", modifier = Modifier.rotate(rot))
                         }
+                        DropdownMenu(expanded = menuFor == "s:" + s.sessionId, onDismissRequest = { menuFor = null },
+                            offset = androidx.compose.ui.unit.DpOffset(24.dp, 0.dp)) {
+                            MenuItem("Rename session", Icons.Default.Edit) { menuFor = null; renaming = Rename(s.sessionId, null, s.label) }
+                            if (si > 0) MenuItem("Move up", Icons.Default.ArrowUpward) {
+                                act("move it") { it.moveSession(s.sessionId, sessions[si - 1].sessionId) }
+                            }
+                            if (si in 0 until sessions.size - 1) MenuItem("Move down", Icons.Default.ArrowDownward) {
+                                act("move it") { it.moveSession(s.sessionId, sessions.getOrNull(si + 2)?.sessionId) }
+                            }
+                            HorizontalDivider()
+                            MenuItem("End session", Icons.Default.DeleteForever, danger = true) {
+                                menuFor = null
+                                confirm = Confirm("End ${s.label.ifBlank { "this session" }}?",
+                                    "Closes all its tabs and stops everything running in them, on every Rex client.", "End session") {
+                                    it.destroySession(s.sessionId)
+                                }
+                            }
+                        }
+                        }
                     }
                     if (!isCollapsed) {
                         itemsIndexed(sPanes, key = { _, p -> p.blockId }) { i, p ->
                             val l = live[p.blockId]; val top = l?.top; val prog = programOf(l)
+                            val wins = s.windows
+                            val wi = wins.indexOfFirst { it.windowId == p.windowId }
+                            androidx.compose.foundation.layout.Box {
                             GroupItem(
                                 index = i, count = sPanes.size,
                                 onClick = { onOpen(p.sessionId, p.blockId) },
-                                onLongClick = { renaming = Rename(p.sessionId, p.windowId, p.window) },
+                                onLongClick = { menuFor = "p:" + p.blockId },
                                 leading = { ProgramAvatar(prog, top) },
                                 headline = {
                                     Text(p.window + if (p.multi) " · ${p.label}" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -281,6 +335,31 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                     }
                                 },
                             )
+                            DropdownMenu(expanded = menuFor == "p:" + p.blockId, onDismissRequest = { menuFor = null },
+                                offset = androidx.compose.ui.unit.DpOffset(32.dp, 0.dp)) {
+                                MenuItem("Rename tab", Icons.Default.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.window) }
+                                if (wi > 0) MenuItem("Move tab up", Icons.Default.ArrowUpward) {
+                                    act("move it") { it.moveWindow(p.sessionId, p.windowId, wins[wi - 1].windowId) }
+                                }
+                                if (wi in 0 until wins.size - 1) MenuItem("Move tab down", Icons.Default.ArrowDownward) {
+                                    act("move it") { it.moveWindow(p.sessionId, p.windowId, wins.getOrNull(wi + 2)?.windowId) }
+                                }
+                                MenuItem("Share output", Icons.Default.Share) {
+                                    act("share it") { sharePaneText(ctx, it, p.sessionId, p.blockId, p.window) }
+                                }
+                                MenuItem("Clear screen", Icons.Default.ClearAll) {
+                                    act("clear it") { it.clearPane(p.sessionId, p.blockId) }
+                                }
+                                HorizontalDivider()
+                                MenuItem("Close tab", Icons.Default.Close, danger = true) {
+                                    menuFor = null
+                                    confirm = Confirm("Close ${p.window}?",
+                                        "Stops everything running in this tab, on every Rex client.", "Close tab") {
+                                        it.closeWindow(p.sessionId, p.windowId)
+                                    }
+                                }
+                            }
+                            }
                         }
                     }
                 }
@@ -294,13 +373,17 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 
     creating?.let { target ->
         val session = sessions.firstOrNull { it.sessionId == target }?.label?.ifBlank { null }
-        NewDialog(
+        // Folders are listed by a terminal on the Mac: one in this session, or any for a new session.
+        val lister = (if (target.isEmpty()) panes.firstOrNull() else panes.firstOrNull { it.sessionId == target } ?: panes.firstOrNull())
+        val h = hub
+        NewSheet(
             title = if (target.isEmpty()) "New session" else "New tab",
             hint = if (target.isEmpty()) "Session name" else "Tab name",
             detail = if (target.isEmpty()) "Starts a new session and shell on $title."
                 else "Start a new shell in ${session ?: "this session"}.",
             busy = busy,
-            onCreate = { create(target, it) },
+            browse = if (lister != null && h != null) { path -> h.listDirs(lister.sessionId, lister.blockId, path) } else null,
+            onCreate = { name, cwd, run -> create(target, name, cwd, run) },
             onDismiss = { if (!busy) creating = null },
         )
     }
@@ -313,6 +396,19 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             busy = busy, initial = r.current, confirm = "Rename", icon = Icons.Default.Edit,
             onCreate = { rename(r, it) },
             onDismiss = { if (!busy) renaming = null },
+        )
+    }
+
+    confirm?.let { c ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text(c.title) },
+            text = { Text(c.text) },
+            confirmButton = {
+                TextButton(onClick = { confirm = null; act(c.action.lowercase()) { c.run(it) } },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(c.action) }
+            },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
         )
     }
 

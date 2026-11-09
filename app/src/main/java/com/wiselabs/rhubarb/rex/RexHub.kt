@@ -160,8 +160,15 @@ class RexHub(
         } catch (e: Exception) { Log.w("RexHub", "refreshAll: ${e.message}") }
     }
 
-    private fun shellLayout() = buildJsonObject {
-        put("block", buildJsonObject { put("flavor", "com.superlogical.terminal.shell") })
+    /** A shell starting in [cwd] (Rex's default, home, if null) that types [run] once it starts. */
+    private fun shellLayout(cwd: String? = null, run: String? = null) = buildJsonObject {
+        put("block", buildJsonObject {
+            put("flavor", "com.superlogical.terminal.shell")
+            if (!cwd.isNullOrBlank() || !run.isNullOrBlank()) put("options", buildJsonObject {
+                if (!cwd.isNullOrBlank()) put("cwd", cwd)
+                if (!run.isNullOrBlank()) put("initial_input", run + "\r")
+            })
+        })
     }
 
     /** Re-read one session's windows and panes into [sessions]. */
@@ -169,6 +176,89 @@ class RexHub(
         val att = control.call("session.attach", buildJsonObject { put("session_id", sid) })!!.jsonObject
         val v = parseView(att["view"]!!.jsonObject)
         _sessions.update { l -> if (l.any { it.sessionId == sid }) l.map { if (it.sessionId == sid) v else it } else l + v }
+    }
+
+    /** Close a window (a tab) and everything running in it. */
+    suspend fun closeWindow(sid: String, windowId: String) {
+        control.call("session.close_window", buildJsonObject { put("session_id", sid); put("window_id", windowId) })
+        reattach(sid)
+    }
+
+    /** End a session and everything running in it. */
+    suspend fun destroySession(sid: String) {
+        control.call("session.destroy", buildJsonObject { put("session_id", sid) })
+        _sessions.update { l -> l.filter { it.sessionId != sid } }
+    }
+
+    /** Move a window to just before [beforeWindowId], or to the end when null. */
+    suspend fun moveWindow(sid: String, windowId: String, beforeWindowId: String?) {
+        control.call("session.move_window", buildJsonObject {
+            put("session_id", sid); put("window_id", windowId)
+            if (beforeWindowId != null) put("before_window_id", beforeWindowId)
+        })
+        reattach(sid)
+    }
+
+    /** Move a session to just before [beforeSessionId], or to the end when null. */
+    suspend fun moveSession(sid: String, beforeSessionId: String?) {
+        control.call("session.move", buildJsonObject {
+            put("session_id", sid)
+            if (beforeSessionId != null) put("before_session_id", beforeSessionId)
+        })
+        val order = control.call("session.list")!!.jsonObject["sessions"]!!.jsonArray
+            .map { it.jsonObject["session_id"]!!.jsonPrimitive.content }
+        _sessions.update { l -> l.sortedBy { s -> order.indexOf(s.sessionId).let { if (it < 0) Int.MAX_VALUE else it } } }
+    }
+
+    /** Subdirectories of [path] on the Mac, resolved as the terminal [blockId] would. */
+    suspend fun listDirs(sid: String, blockId: String, path: String): Pair<String, List<String>> {
+        val r = control.blockCall(sid, blockId, "$TERMINAL.list_dir", buildJsonObject { put("path", path) })!!.jsonObject
+        val dirs = (r["entries"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val o = e.jsonObject
+            if (o["file"]?.jsonPrimitive?.contentOrNull == "true") null else o["name"]?.jsonPrimitive?.contentOrNull
+        }.sortedBy { it.lowercase() }
+        return (r["path"]?.jsonPrimitive?.contentOrNull ?: path) to dirs
+    }
+
+    /** A pane's screen and scrollback as plain text, reading it in parts if it's large. */
+    suspend fun paneText(sid: String, blockId: String): String {
+        val first = control.blockCall(sid, blockId, "$TERMINAL.format", buildJsonObject {
+            put("format", "text"); put("trim", true); put("unwrap", true); put("max_bytes", 512 * 1024)
+        })!!.jsonObject
+        val out = StringBuilder(first["content"]?.jsonPrimitive?.contentOrNull.orEmpty())
+        val id = first["id"]?.jsonPrimitive?.contentOrNull ?: return out.toString().trimEnd()
+        // The rest is read by byte offset (UTF-8) into the result, continuing after what came back.
+        var offset = out.toString().toByteArray().size.toLong()
+        var guard = 0
+        while (guard++ < 256) {
+            val part = control.blockCall(sid, blockId, "$TERMINAL.blob_read", buildJsonObject {
+                put("id", id); put("offset", offset); put("max_bytes", 512 * 1024)
+            })!!.jsonObject
+            val data = part["data"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            out.append(data)
+            offset += data.toByteArray().size
+            if (part["eof"]?.jsonPrimitive?.contentOrNull == "true" || data.isEmpty()) break
+        }
+        return out.toString().trimEnd()
+    }
+
+    suspend fun clearPane(sid: String, blockId: String) { control.blockCall(sid, blockId, "$TERMINAL.clear") }
+    suspend fun resetPane(sid: String, blockId: String) { control.blockCall(sid, blockId, "$TERMINAL.reset") }
+
+    /** Rex's version and the server's Tailscale name, for Settings. */
+    suspend fun serverInfo(): Map<String, String> {
+        val v = control.call("server.version")?.jsonObject
+        val st = control.call("server.status")?.jsonObject
+        val ts = st?.get("tailscale") as? JsonObject
+        return buildMap {
+            v?.get("rex_version")?.jsonPrimitive?.contentOrNull?.let { put("Rex version", it) }
+            v?.get("built_at")?.jsonPrimitive?.contentOrNull?.let { put("Built", it.take(10)) }
+            v?.get("platform")?.jsonPrimitive?.contentOrNull?.let { put("Platform", it.replace('_', ' ')) }
+            v?.get("api_revision")?.jsonPrimitive?.contentOrNull?.let { put("API revision", it) }
+            ts?.get("dns_name")?.jsonPrimitive?.contentOrNull?.let { put("Tailscale name", it) }
+            st?.get("started_at")?.jsonPrimitive?.contentOrNull?.let { put("Running since", it.take(16).replace('T', ' ') + " UTC") }
+            st?.get("session_count")?.jsonPrimitive?.contentOrNull?.let { put("Sessions", it) }
+        }
     }
 
     /** Rename a window (an empty label restores Rex's default). */
@@ -184,10 +274,10 @@ class RexHub(
     }
 
     /** Start a session with one shell. Returns its session and block IDs. */
-    suspend fun createSession(label: String?): Pair<String, String> {
+    suspend fun createSession(label: String?, cwd: String? = null, run: String? = null): Pair<String, String> {
         val r = control.call("session.create", buildJsonObject {
             if (!label.isNullOrBlank()) put("label", label.trim())
-            put("initial_windows", kotlinx.serialization.json.buildJsonArray { add(buildJsonObject { put("layout", shellLayout()) }) })
+            put("initial_windows", kotlinx.serialization.json.buildJsonArray { add(buildJsonObject { put("layout", shellLayout(cwd, run)) }) })
         })!!.jsonObject
         val sid = r["session_id"]!!.jsonPrimitive.content
         val bid = r["initial_windows"]!!.jsonArray[0].jsonObject["block_ids"]!!.jsonArray[0].jsonPrimitive.content
@@ -199,11 +289,11 @@ class RexHub(
      * Add a window with one shell to [sid]. It doesn't become the Mac's active window, so the
      * Mac isn't switched away from what it shows. Returns the new block's ID.
      */
-    suspend fun newWindow(sid: String, label: String?): String {
+    suspend fun newWindow(sid: String, label: String?, cwd: String? = null, run: String? = null): String {
         val r = control.call("session.new_window", buildJsonObject {
             put("session_id", sid)
             if (!label.isNullOrBlank()) put("window_label", label.trim())
-            put("layout", shellLayout())
+            put("layout", shellLayout(cwd, run))
             put("focus", false)
         })!!.jsonObject
         val bid = r["block_ids"]!!.jsonArray[0].jsonPrimitive.content

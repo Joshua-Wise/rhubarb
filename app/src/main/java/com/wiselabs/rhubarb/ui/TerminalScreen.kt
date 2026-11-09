@@ -36,6 +36,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
@@ -336,6 +339,26 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                         Icon(Icons.Default.AddPhotoAlternate, "Send image")
                     }
                     IconButton(onClick = { jumpToLive() }) { Icon(Icons.Default.VerticalAlignBottom, "Scroll to bottom") }
+                    var paneMenu by remember { mutableStateOf(false) }
+                    androidx.compose.foundation.layout.Box {
+                        IconButton(onClick = { paneMenu = true }) { Icon(Icons.Default.MoreVert, "More") }
+                        DropdownMenu(expanded = paneMenu, onDismissRequest = { paneMenu = false }) {
+                            fun run(what: String, op: suspend () -> Unit) {
+                                paneMenu = false
+                                scope.launch {
+                                    try { op() } catch (e: Exception) {
+                                        android.widget.Toast.makeText(ctx, "Couldn't $what: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                            DropdownMenuItem(text = { Text("Share output") }, leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = { run("share it") { sharePaneText(ctx, h, sessionId, blockId, window?.label ?: "Terminal") } })
+                            DropdownMenuItem(text = { Text("Clear screen") }, leadingIcon = { Icon(Icons.Default.ClearAll, null) },
+                                onClick = { run("clear it") { h.clearPane(sessionId, blockId) } })
+                            DropdownMenuItem(text = { Text("Reset terminal") }, leadingIcon = { Icon(Icons.Default.RestartAlt, null) },
+                                onClick = { run("reset it") { h.resetPane(sessionId, blockId) } })
+                        }
+                    }
                 },
             )
         },

@@ -75,6 +75,13 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
     var watch by remember { mutableStateOf(app.watchEnabled) }
     var notifyDone by remember { mutableStateOf(app.notifyDone) }
     var editing by remember { mutableStateOf<String?>(null) } // "host" | "device"
+    var forgetting by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val hub by app.hub.collectAsState()
+    var serverInfo by remember { mutableStateOf<Map<String, String>?>(null) }
+    androidx.compose.runtime.LaunchedEffect(hub) {
+        serverInfo = null
+        serverInfo = runCatching { hub?.serverInfo() }.getOrNull().orEmpty()
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -105,16 +112,39 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             val hosts = rememberKnownHosts()
             hosts.forEachIndexed { i, (label, url) ->
                 val current = isCurrentHost(url)
+                val saved = st.savedHosts.value.any { com.wiselabs.rhubarb.Settings.hostKey(it.second) == com.wiselabs.rhubarb.Settings.hostKey(url) }
                 GroupItem(i, hosts.size,
                     onClick = { if (!current) app.switchServer(url, label) },
-                    leading = { Icon(Icons.Default.Dns, null) },
-                    headline = { Text(label) },
-                    supporting = { Text(if (current) "Connected · ${displayAddress(url)}" else displayAddress(url)) },
-                    trailing = {
+                    // Hold a saved host (not the one in use) to forget it.
+                    onLongClick = if (saved && !current) ({ forgetting = label to url }) else null,
+                    leading = {
                         if (current) Icon(Icons.Default.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary)
-                        else if (st.savedHosts.value.any { com.wiselabs.rhubarb.Settings.hostKey(it.second) == com.wiselabs.rhubarb.Settings.hostKey(url) })
-                            IconButton(onClick = { st.forgetHost(url) }) { Icon(Icons.Default.Close, "Forget host") }
+                        else Icon(Icons.Default.Dns, null)
+                    },
+                    headline = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                    supporting = {
+                        Text(if (current) "Connected · ${displayAddress(url)}" else displayAddress(url),
+                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     })
+            }
+            if (hosts.any { (_, u) -> !isCurrentHost(u) }) {
+                Text("Hold a saved host to forget it.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 32.dp, top = 6.dp))
+            }
+
+            SectionHeader("Server")
+            val info = serverInfo
+            if (info == null) {
+                GroupItem(0, 1, leading = { Icon(Icons.Default.Info, null) }, headline = { Text("Loading…") })
+            } else if (info.isEmpty()) {
+                GroupItem(0, 1, leading = { Icon(Icons.Default.Info, null) }, headline = { Text("Not connected") })
+            } else {
+                val rows = info.entries.toList()
+                rows.forEachIndexed { i, (k, v) ->
+                    GroupItem(i, rows.size,
+                        headline = { Text(k) },
+                        supporting = { Text(v, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) })
+                }
             }
 
             SectionHeader("Notifications")
@@ -212,6 +242,16 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     )
                 })
         }
+    }
+
+    forgetting?.let { (label, url) ->
+        AlertDialog(
+            onDismissRequest = { forgetting = null },
+            title = { Text("Forget $label?") },
+            text = { Text("It's removed from this phone's host list. You can add it again any time.") },
+            confirmButton = { TextButton(onClick = { st.forgetHost(url); forgetting = null }) { Text("Forget") } },
+            dismissButton = { TextButton(onClick = { forgetting = null }) { Text("Cancel") } },
+        )
     }
 
     editing?.let { which ->

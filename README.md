@@ -9,10 +9,15 @@ unofficial client built on the API that every Rex server documents about itself 
 
 - **Sessions at a glance**: every session, window, and terminal on your Mac, with each
   terminal's title, directory, and live program status.
-- **Start work from the phone**: the + button starts a new session with a shell, and the + on
-  a session adds a tab to it (without switching the Mac to it). Search sits at the top. Long-press a pane to rename its tab, or a session's
-  header to rename the session. Panes running coding agents show the agent's mark (Claude Code,
-  Codex, Gemini, Copilot, OpenCode, Cursor, Qwen, Mistral, Ollama; marks from Simple Icons).
+- **Start and manage work from the phone**: the + button starts a new session, and the + on a
+  session adds a tab (without switching the Mac to it). Choose the folder to start in (browsed on
+  the Mac) and what to start: a shell, Claude Code, Codex, OpenCode, Copilot or Gemini. Hold a pane
+  to rename, reorder, share its output, clear it or close its tab; hold a session's header to
+  rename, reorder or end it. Panes running coding agents show the agent's mark (Claude Code,
+  Codex, Gemini, Copilot, OpenCode, Cursor, Qwen, Mistral, Ollama; most marks from Simple Icons).
+- **In a pane**: ⋮ shares the screen and scrollback as text (a .txt file when it's long), clears
+  the screen, or resets the terminal.
+- **Settings** shows the Rex server's version and Tailscale name. Hold a saved host to forget it.
 - **"Needs you" alerts**: programs report status with OSC 7501, and Claude Code does. When
   one goes `blocked` (permission, question, or password), you get a high-priority notification
   with a **Reply** action that types into the terminal. You can also be told when work goes
