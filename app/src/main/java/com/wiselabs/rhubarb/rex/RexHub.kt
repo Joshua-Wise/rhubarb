@@ -160,6 +160,45 @@ class RexHub(
         } catch (e: Exception) { Log.w("RexHub", "refreshAll: ${e.message}") }
     }
 
+    private fun shellLayout() = buildJsonObject {
+        put("block", buildJsonObject { put("flavor", "com.superlogical.terminal.shell") })
+    }
+
+    /** Re-read one session's windows and panes into [sessions]. */
+    private suspend fun reattach(sid: String) {
+        val att = control.call("session.attach", buildJsonObject { put("session_id", sid) })!!.jsonObject
+        val v = parseView(att["view"]!!.jsonObject)
+        _sessions.update { l -> if (l.any { it.sessionId == sid }) l.map { if (it.sessionId == sid) v else it } else l + v }
+    }
+
+    /** Start a session with one shell. Returns its session and block IDs. */
+    suspend fun createSession(label: String?): Pair<String, String> {
+        val r = control.call("session.create", buildJsonObject {
+            if (!label.isNullOrBlank()) put("label", label.trim())
+            put("initial_windows", kotlinx.serialization.json.buildJsonArray { add(buildJsonObject { put("layout", shellLayout()) }) })
+        })!!.jsonObject
+        val sid = r["session_id"]!!.jsonPrimitive.content
+        val bid = r["initial_windows"]!!.jsonArray[0].jsonObject["block_ids"]!!.jsonArray[0].jsonPrimitive.content
+        reattach(sid)
+        return sid to bid
+    }
+
+    /**
+     * Add a window with one shell to [sid]. It doesn't become the Mac's active window, so the
+     * Mac isn't switched away from what it shows. Returns the new block's ID.
+     */
+    suspend fun newWindow(sid: String, label: String?): String {
+        val r = control.call("session.new_window", buildJsonObject {
+            put("session_id", sid)
+            if (!label.isNullOrBlank()) put("window_label", label.trim())
+            put("layout", shellLayout())
+            put("focus", false)
+        })!!.jsonObject
+        val bid = r["block_ids"]!!.jsonArray[0].jsonPrimitive.content
+        reattach(sid)
+        return bid
+    }
+
     /** Other Rex servers this server knows about (Rex's "hosts"), as label to https endpoint. */
     suspend fun hosts(): List<Pair<String, String>> = try {
         (control.call("hosts.list")?.jsonObject?.get("hosts") as? JsonArray)?.mapNotNull { h ->

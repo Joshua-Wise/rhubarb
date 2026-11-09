@@ -25,6 +25,15 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.SearchBar
+import androidx.compose.material3.Surface
+import androidx.compose.material3.MediumFloatingActionButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -83,7 +92,22 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val collapsed = rememberSaveable { mutableStateOf(setOf<String>()) }
-    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // null: no dialog; "": new session; a session ID: new window in that session.
+    var creating by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    fun create(target: String, name: String) {
+        val h = hub ?: return
+        busy = true
+        scope.launch {
+            try {
+                if (target.isEmpty()) { val (sid, bid) = h.createSession(name); creating = null; onOpen(sid, bid) }
+                else { val bid = h.newWindow(target, name); creating = null; onOpen(target, bid) }
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(ctx, "Couldn't create it: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            } finally { busy = false }
+        }
+    }
 
     val panes = sessions.flatMap { s ->
         s.windows.flatMap { w ->
@@ -96,34 +120,49 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Scaffold(
-        modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = {
-                    // Only a click here: the flexible app bar composes its title twice (expanded and
-                    // collapsed), so the host picker lives in a bottom sheet, not in this slot.
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { showHosts = true }) {
-                        Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Icon(Icons.Default.ArrowDropDown, "Switch host")
-                    }
-                },
-                subtitle = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val (dot, text) = when (val c = conn) {
-                            is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
-                            is ConnState.Connecting -> "working" to "Connecting…"
-                            is ConnState.Failed -> "error" to "Offline"
-                            ConnState.Idle -> null to "Idle"
+            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)) {
+                // Search app bar: a pill that opens full-screen search, with Settings beside it.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        onClick = { searching = true },
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.weight(1f).height(56.dp),
+                    ) {
+                        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Search $title", style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        StatusDot(dot); Spacer(Modifier.width(6.dp)); Text(text)
                     }
-                },
-                actions = {
-                    IconButton(onClick = { searching = true }) { Icon(Icons.Default.Search, "Search") }
-                    IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Settings") }
-                },
-                scrollBehavior = scroll,
-            )
+                    IconButton(onClick = onSettings, modifier = Modifier.padding(start = 4.dp)) { Icon(Icons.Default.Settings, "Settings") }
+                }
+                // Host (tap to switch) and connection state.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 6.dp).clip(MaterialTheme.shapes.small).clickable { showHosts = true }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    val (dot, text) = when (conn) {
+                        is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
+                        is ConnState.Connecting -> "working" to "Connecting…"
+                        is ConnState.Failed -> "error" to "Offline"
+                        ConnState.Idle -> null to "Idle"
+                    }
+                    Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.ArrowDropDown, "Switch host")
+                    Spacer(Modifier.width(8.dp))
+                    StatusDot(dot); Spacer(Modifier.width(6.dp))
+                    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        floatingActionButton = {
+            if (conn is ConnState.Connected) {
+                MediumFloatingActionButton(onClick = { creating = "" }) { Icon(Icons.Default.Add, "New session", Modifier.size(28.dp)) }
+            }
         },
     ) { pad ->
         PullToRefreshBox(
@@ -131,7 +170,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             onRefresh = { scope.launch { refreshing = true; hub?.refreshAll(); refreshing = false } },
             modifier = Modifier.padding(pad).fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp)) {
                 if (conn is ConnState.Failed && sessions.isEmpty()) {
                     item {
                         Card(
@@ -194,6 +233,10 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 StatusDot("blocked"); Spacer(Modifier.width(6.dp))
                                 Text("$waiting waiting", style = MaterialTheme.typography.labelMedium); Spacer(Modifier.width(8.dp))
                             }
+                            IconButton(onClick = { creating = s.sessionId }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Add, "New window in ${s.label.ifBlank { "this session" }}", Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ExpandMore, if (isCollapsed) "Expand" else "Collapse", modifier = Modifier.rotate(rot))
                         }
                     }
@@ -226,6 +269,19 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                 item { Spacer(Modifier.height(16.dp)) }
             }
         }
+    }
+
+    creating?.let { target ->
+        val session = sessions.firstOrNull { it.sessionId == target }?.label?.ifBlank { null }
+        NewDialog(
+            title = if (target.isEmpty()) "New session" else "New window",
+            hint = if (target.isEmpty()) "Session name" else "Window name",
+            detail = if (target.isEmpty()) "Starts a shell on $title. Leave the name blank and Rex picks one."
+                else "Adds a shell to ${session ?: "this session"} without switching the Mac to it.",
+            busy = busy,
+            onCreate = { create(target, it) },
+            onDismiss = { if (!busy) creating = null },
+        )
     }
 
     if (showHosts) HostSheet(onDismiss = { showHosts = false }, onAddServer = onAddServer)
@@ -268,4 +324,32 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
         }
     }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun NewDialog(title: String, hint: String, detail: String, busy: Boolean, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Add, null) },
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(detail, style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it.take(128) }, singleLine = true, enabled = !busy,
+                    label = { Text("$hint (optional)") }, modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (!busy) onCreate(name) }),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onCreate(name) }, enabled = !busy) {
+                if (busy) LoadingIndicator(Modifier.size(20.dp)) else Text("Create")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+    )
 }
