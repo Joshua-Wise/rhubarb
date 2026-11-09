@@ -12,7 +12,7 @@ unofficial client built on the API that every Rex server documents about itself 
 - **Start work from the phone**: the + button starts a new session with a shell, and the + on
   a session adds a window to it (without switching the Mac to it). Search sits at the top. Long-press a pane to rename its window, or a session's
   header to rename the session. Panes running coding agents show the agent's mark (Claude Code,
-  Gemini, Copilot, OpenCode, Cursor, Qwen, Mistral, Ollama; marks from Simple Icons).
+  Codex, Gemini, Copilot, OpenCode, Cursor, Qwen, Mistral, Ollama; marks from Simple Icons).
 - **"Needs you" alerts**: programs report status with OSC 7501, and Claude Code does. When
   one goes `blocked` (permission, question, or password), you get a high-priority notification
   with a **Reply** action that types into the terminal. You can also be told when work goes

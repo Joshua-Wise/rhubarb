@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Codex's ">_" mark, redrawn for this app (white strokes; the avatar supplies the
+     scalloped badge). Codex is a trademark of OpenAI; used here only to identify panes running it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M5.5,7.2 L8.9,12 L5.5,16.8 M12.6,16.2 L18.6,16.2" />
+</vector>

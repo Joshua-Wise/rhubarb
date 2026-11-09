@@ -152,7 +152,7 @@ fun programOf(l: BlockLive?): Program {
         has("vibe", "mistral") -> brand("Mistral Vibe", R.drawable.ic_mistral, Color(0xFFFA520F))
         has("ollama") -> brand("Ollama", R.drawable.ic_ollama, brandBlack)
         has("pi") -> Program("Pi", Icons.Default.SmartToy, agent = true, glyph = "π")
-        has("codex") -> Program("Codex", Icons.Default.SmartToy, agent = true)
+        has("codex") -> brand("Codex", R.drawable.ic_codex, brandBlack)
         has("aider", "goose", "crush", "amp", "kiro-cli", "droid", "kimi") -> Program(app ?: name, Icons.Default.SmartToy, agent = true)
         has("vim", "nvim", "vi", "hx", "helix", "nano", "emacs", "micro") -> Program(name, Icons.Default.EditNote)
         has("ssh", "mosh", "mosh-client", "et") -> Program(name, Icons.Default.Lan)
