@@ -98,7 +98,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     var query by rememberSaveable { mutableStateOf("") }
     val collapsed = rememberSaveable { mutableStateOf(setOf<String>()) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    // null: no dialog; "": new session; a session ID: new window in that session.
+    // null: no dialog; "": new session; a session ID: new tab (Rex window) in that session.
     var creating by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Rename?>(null) }
@@ -254,7 +254,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 Text("$waiting waiting", style = MaterialTheme.typography.labelMedium); Spacer(Modifier.width(8.dp))
                             }
                             IconButton(onClick = { creating = s.sessionId }, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Default.Add, "New window in ${s.label.ifBlank { "this session" }}", Modifier.size(20.dp))
+                                Icon(Icons.Default.Add, "New tab in ${s.label.ifBlank { "this session" }}", Modifier.size(20.dp))
                             }
                             Spacer(Modifier.width(4.dp))
                             Icon(Icons.Default.ExpandMore, if (isCollapsed) "Expand" else "Collapse", modifier = Modifier.rotate(rot))
@@ -295,10 +295,10 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     creating?.let { target ->
         val session = sessions.firstOrNull { it.sessionId == target }?.label?.ifBlank { null }
         NewDialog(
-            title = if (target.isEmpty()) "New session" else "New window",
-            hint = if (target.isEmpty()) "Session name" else "Window name",
-            detail = if (target.isEmpty()) "Starts a shell on $title. Leave the name blank and Rex picks one."
-                else "Adds a shell to ${session ?: "this session"} without switching the Mac to it.",
+            title = if (target.isEmpty()) "New session" else "New tab",
+            hint = if (target.isEmpty()) "Session name" else "Tab name",
+            detail = if (target.isEmpty()) "Starts a new session and shell on $title."
+                else "Start a new shell in ${session ?: "this session"}.",
             busy = busy,
             onCreate = { create(target, it) },
             onDismiss = { if (!busy) creating = null },
@@ -307,9 +307,9 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 
     renaming?.let { r ->
         NewDialog(
-            title = if (r.windowId != null) "Rename window" else "Rename session",
-            hint = if (r.windowId != null) "Window name" else "Session name",
-            detail = "Shows on every Rex client. Leave it blank to go back to Rex's default name.",
+            title = if (r.windowId != null) "Rename tab" else "Rename session",
+            hint = if (r.windowId != null) "Tab name" else "Session name",
+            detail = "Shows on every Rex client.",
             busy = busy, initial = r.current, confirm = "Rename", icon = Icons.Default.Edit,
             onCreate = { rename(r, it) },
             onDismiss = { if (!busy) renaming = null },
@@ -375,7 +375,7 @@ private fun NewDialog(
                 Text(detail, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = name, onValueChange = { name = it.take(128) }, singleLine = true, enabled = !busy,
-                    label = { Text(if (initial.isEmpty()) "$hint (optional)" else hint) }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(hint) }, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (!busy) onCreate(name) }),
                 )
