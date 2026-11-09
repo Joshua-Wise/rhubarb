@@ -231,3 +231,39 @@ internal fun TerminalSelectionHandle(
         }
     }
 }
+
+// Rhubarb: plain-text links, for long-press → open/copy/share.
+private val urlPattern = Regex("""(?:https?|ftp|file|ssh)://[^\s<>"'`{}|\\^]+|www\.[^\s<>"'`{}|\\^]+\.[^\s<>"'`{}|\\^]+""")
+
+/**
+ * The URL under [cellIndex], if any. A row whose last cell is filled is treated as wrapping into
+ * the next one, so long URLs broken across rows are found whole.
+ */
+internal fun TerminalSnapshot.urlAt(cellIndex: Int): String? {
+    if (cols <= 0 || cellIndex !in codepoints.indices) return null
+    fun full(r: Int): Boolean { val cp = codepoints[r * cols + cols - 1]; return cp != 0 && cp != 32 }
+    val row = cellIndex / cols
+    var first = row
+    while (first > 0 && row - first < 6 && full(first - 1)) first--
+    var last = row
+    while (last < rows - 1 && last - row < 6 && full(last)) last++
+    val text = StringBuilder()
+    val offsetOf = IntArray((last - first + 1) * cols)
+    for (i in first * cols until (last + 1) * cols) {
+        offsetOf[i - first * cols] = text.length
+        if (isSpacerContinuation(i)) continue
+        val cp = codepoints[i]
+        if (cp == 0) text.append(' ') else text.append(glyphAt(i))
+    }
+    val at = offsetOf[cellIndex - first * cols]
+    val m = urlPattern.findAll(text).firstOrNull { at in it.range } ?: return null
+    var url = m.value
+    // Drop trailing punctuation that is almost never part of a link.
+    while (url.isNotEmpty()) {
+        val c = url.last()
+        val unbalanced = (c == ')' && url.count { it == '(' } < url.count { it == ')' }) ||
+            (c == ']' && url.count { it == '[' } < url.count { it == ']' })
+        if (c in ".,;:!?'\"" || unbalanced) url = url.dropLast(1) else break
+    }
+    return url.takeIf { it.length > 4 }
+}

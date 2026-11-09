@@ -78,6 +78,8 @@ fun TerminalCanvas(
     maxFontSizeSp: Float = Float.MAX_VALUE,
     onFontSizeChange: (sizeSp: Float) -> Unit = {},
     onSelectionChanged: (TerminalSelectionState?) -> Unit = {},
+    // Rhubarb: long-pressing a link calls this instead of starting a selection.
+    onLinkLongPress: ((url: String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -198,6 +200,7 @@ fun TerminalCanvas(
     val currentHaptics = rememberUpdatedState(haptics)
     val currentTouchSlopPx = rememberUpdatedState(touchSlopPx)
     val currentLongPressSlopPx = rememberUpdatedState(longPressSlopPx)
+    val currentOnLinkLongPress = rememberUpdatedState(onLinkLongPress)
     val currentLongPressTimeoutMillis = rememberUpdatedState(longPressTimeoutMillis)
     val currentAutoScrollEdgeZonePx = rememberUpdatedState(autoScrollEdgeZonePx)
     val currentDoubleTapTimeoutMillis = rememberUpdatedState(doubleTapTimeoutMillis)
@@ -327,7 +330,15 @@ fun TerminalCanvas(
                                     if (dragMode == DragMode.None) {
                                         val s = currentSnapshot.value
                                         val downPos = toSnapshotSpace(down.position, s)
-                                        if (s.appHandlesSelectionDrag && !clientSelectionOnly) {
+                                        val link = currentOnLinkLongPress.value?.let { cb ->
+                                            s.cellAt(downPos.x, downPos.y, currentCellWidth.value, currentCellHeight.value)
+                                                ?.let { s.urlAt(it) }?.let { it to cb }
+                                        }
+                                        if (link != null) {
+                                            currentHaptics.value.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            link.second(link.first)
+                                            didDragGesture = true
+                                        } else if (s.appHandlesSelectionDrag && !clientSelectionOnly) {
                                             currentOnAppSelectionDrag.value(TerminalMouseAction.Press, downPos.x, downPos.y)
                                             currentHaptics.value.performHapticFeedback(
                                                 HapticFeedbackType.LongPress,

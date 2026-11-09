@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -65,6 +66,7 @@ fun GhosttyPane(
     val context = LocalContext.current
     var selection by remember { mutableStateOf<TerminalSelection?>(null) }
     var selectedText by remember { mutableStateOf<String?>(null) }
+    var link by remember { mutableStateOf<String?>(null) }
     val bg = Color(android.graphics.Color.parseColor("#$background"))
     BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         val snap = snapshot
@@ -84,6 +86,7 @@ fun GhosttyPane(
                 selection = selection,
                 onSelectionChange = { selection = it },
                 onSelectionChanged = { selectedText = it?.text },
+                onLinkLongPress = { link = it },
                 onTap = onTap,
                 onScroll = { delta, x, y ->
                     scope.launch { ghostty.scroll(delta, x, y)?.let(onWheelInput) }
@@ -91,6 +94,7 @@ fun GhosttyPane(
                 onResize = { cols, rows, cw, ch, _, _ -> onCanvasGrid(intArrayOf(cols, rows, cw, ch)) },
             )
         }
+        link?.let { url -> LinkSheet(url, onDismiss = { link = null }) }
         if (selection != null) {
             Surface(
                 Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
@@ -139,4 +143,41 @@ fun ghosttyColors(p: TermPalette, macThemeJson: String?): GhosttyTerminal.Colors
         }
     }
     return GhosttyTerminal.colors(fg, bg, cursor, ansi)
+}
+
+/** What to do with a link long-pressed in the terminal. */
+@Composable
+private fun LinkSheet(url: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val target = if (url.startsWith("www.")) "https://$url" else url
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Link, null) },
+        title = { Text("Link") },
+        text = { Text(url, style = MaterialTheme.typography.bodyMedium, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) },
+        confirmButton = {
+            TextButton(onClick = {
+                onDismiss()
+                runCatching {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(target))
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.onFailure { android.widget.Toast.makeText(context, "No app can open this link", android.widget.Toast.LENGTH_SHORT).show() }
+            }) { Text("Open") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = {
+                    onDismiss()
+                    context.getSystemService(android.content.ClipboardManager::class.java)
+                        .setPrimaryClip(android.content.ClipData.newPlainText("Link", url))
+                }) { Text("Copy") }
+                TextButton(onClick = {
+                    onDismiss()
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, target)
+                    context.startActivity(android.content.Intent.createChooser(send, null).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                }) { Text("Share") }
+            }
+        },
+    )
 }

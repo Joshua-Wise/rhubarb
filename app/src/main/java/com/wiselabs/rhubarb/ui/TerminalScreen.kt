@@ -133,6 +133,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     fun jumpToLive() = jumpToLiveRef[0]()
     var zoom by remember { mutableFloatStateOf(1f) }
     var owned by remember { mutableStateOf(false) }
+    var paneOwner by remember { mutableStateOf<String?>(null) } // from Rex's size messages
+    var takenAway by remember { mutableStateOf(0) }            // times another device took the pane
+    var takeBackNote by remember { mutableStateOf<String?>(null) }
     val autoFit by app.settings.fitToPhone.collectAsState()
     var gridSize by remember { mutableStateOf("") }
 
@@ -263,7 +266,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 when (ev) {
                     is TermEvent.Reset -> if (useGhostty) ghostty.reset() else { synchronized(pending) { pending.reset() }; js("rex.reset()") }
                     is TermEvent.Output -> { rx += ev.bytes.size; if (useGhostty) ghostty.write(ev.bytes) else synchronized(pending) { pending.write(ev.bytes) } }
-                    is TermEvent.Resize -> { gridSize = "${ev.cols}×${ev.rows}"; if (useGhostty) ghostty.resize(ev.cols, ev.rows) else js("rex.resize(${ev.cols}, ${ev.rows})") }
+                    is TermEvent.Resize -> { gridSize = "${ev.cols}×${ev.rows}"; paneOwner = ev.owner; if (useGhostty) ghostty.resize(ev.cols, ev.rows) else js("rex.resize(${ev.cols}, ${ev.rows})") }
                     // The Mac's colors arrive in the stream; use them only if the user chose to.
                     is TermEvent.Theme -> { macTheme = ev.json.toString(); if (app.settings.terminalColors.value == com.wiselabs.rhubarb.TerminalColors.Mac) js("rex.theme($macTheme)") }
                     is TermEvent.ChildExited -> status = "program exited (${ev.code})"
@@ -286,6 +289,20 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
 
     // Fit to phone on open (and again when the canvas changes size, e.g. the keyboard opens),
     // unless turned off in Settings.
+    // If another device (the Mac) takes the pane while it's open here, take it back, waiting
+    // longer each time it insists so the two don't fight.
+    val conn by h.control.state.collectAsState()
+    val myId = (conn as? com.wiselabs.rhubarb.rex.ConnState.Connected)?.clientId
+    LaunchedEffect(paneOwner, owned, autoFit, myId) {
+        val other = paneOwner
+        if (!autoFit || !owned || myId.isNullOrEmpty() || other.isNullOrEmpty() || other == myId) { takeBackNote = null; return@LaunchedEffect }
+        val wait = listOf(2, 5, 15, 30, 60)[takenAway.coerceAtMost(4)]
+        takenAway++
+        for (left in wait downTo 1) { takeBackNote = "another device has it · taking back in ${left}s"; delay(1000) }
+        takeBackNote = null
+        takeOver(h, sessionId, blockId) { phoneGrid() }
+    }
+
     LaunchedEffect(canvasGrid?.toList(), autoFit) {
         if (!autoFit) return@LaunchedEffect
         delay(300)
@@ -304,7 +321,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                         Text(window?.label ?: "Terminal", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val sub = listOfNotNull(
                             jsLog,
-                            status,
+                            takeBackNote ?: status,
                             statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },
                             gridSize.ifBlank { null },
