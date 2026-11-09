@@ -41,10 +41,10 @@ unofficial client built on the API that every Rex server documents about itself 
 ## How it connects
 
 ```
-Pixel ──Tailscale (WireGuard)──▶ <mac>-rex.<tailnet>.ts.net (HTTPS, built into the Rex server)
-         ├─ wss /api/control   JSON: requests, responses, events  (rex.control.v1)
-         ├─ wss /api/data      binary: one terminal's output stream (rex.data.terminal.v1)
-         └─ wss /api/data      binary: an image being sent to the Mac (rex.data.bytes.v1)
+Android device ──Tailscale (WireGuard)──▶ <mac>-rex.<tailnet>.ts.net (HTTPS, built into the Rex server)
+                  ├─ wss /api/control   JSON: requests, responses, events  (rex.control.v1)
+                  ├─ wss /api/data      binary: one terminal's output stream (rex.data.terminal.v1)
+                  └─ wss /api/data      binary: an image being sent to the Mac (rex.data.bytes.v1)
 ```
 
 The Rex server runs its own Tailscale node. It accepts connections from devices signed in to
@@ -97,7 +97,7 @@ adb install -r ~/Library/Caches/rexAndroid/app/outputs/apk/debug/app-debug.apk
 
 ## Phone setup
 
-1. Install Tailscale on the Pixel and sign in with the same account as the Mac.
+1. Install Tailscale on your Android device and sign in with the same account as the Mac.
 2. Open Rhubarb and enter the server address, for example `my-mac-rex.tailnet.ts.net`.
 3. Optional: turn on **Watch in background** to get alerts while the app is closed. This
    keeps a foreground-service connection open, because Rex has no push channel to phones.
