@@ -5,6 +5,10 @@ Superlogical. Superlogical ships macOS (and is working on iOS); this app is an i
 unofficial client built on the API that every Rex server documents about itself at
 `GET /llms.txt`. Rhubarb collects no data; see the [privacy policy](https://jwise.dev/rhubarb/privacy/).
 
+> **Built with AI assistance.** Rhubarb was developed by Josh Wise with the help of AI coding
+> tools (Claude Code by Anthropic). Josh directed the work and tested each change on real devices
+> against a real Rex server; the AI wrote much of the code under that direction.
+
 | Sessions | Terminal | New session | Alerts |
 | :---: | :---: | :---: | :---: |
 | <img src="store/screenshots/1-home.png" alt="Home screen: sessions and tabs, each with the coding agent running in it" width="200"> | <img src="store/screenshots/2-terminal.png" alt="A pane running Claude Code, drawn by Ghostty, with the phone key bar" width="200"> | <img src="store/screenshots/3-new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> | <img src="store/screenshots/4-notification.png" alt="A notification that Claude Code finished" width="200"> |
@@ -114,3 +118,8 @@ app/src/main/java/dev/jwise/rhubarb/
   ui/                    Compose screens (server setup, home, terminal)
 app/src/main/assets/term/ xterm.js 5.5.0 (MIT) host page
 ```
+
+## License
+
+[MIT](LICENSE). Bundled third-party pieces keep their own licenses: Ghostty's terminal engine
+and xterm.js are MIT, and the agent marks come from Simple Icons (CC0; the Copilot mark is MIT).
