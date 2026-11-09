@@ -76,7 +76,8 @@ fn buildLibrary(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.l
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .strip = true,
+        // Symbols stay in; Gradle strips them when packaging and keeps a copy for Play.
+        .strip = false,
         .unwind_tables = .none,
         .omit_frame_pointer = true,
     });

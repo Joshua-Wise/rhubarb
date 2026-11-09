@@ -12,9 +12,13 @@ android {
         applicationId = "dev.jwise.rhubarb"
         minSdk = 28
         targetSdk = 37
-        versionCode = 31
+        versionCode = 32
         versionName = "0.14.1"
+        // Ship librexterm's symbol table inside the bundle so Play can name native frames.
+        ndk { debugSymbolLevel = "SYMBOL_TABLE" }
     }
+    // The NDK that strips librexterm.so when packaging; same one scripts/build-native.sh uses.
+    ndkVersion = "30.0.16248370"
 
     // The Play upload key lives outside the repo. Its location and password come from
     // ~/.gradle/gradle.properties (RHUBARB_UPLOAD_STORE_FILE, RHUBARB_UPLOAD_PASSWORD);
