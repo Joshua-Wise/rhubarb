@@ -3,6 +3,8 @@ package com.wiselabs.rhubarb.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -75,9 +77,12 @@ import com.wiselabs.rhubarb.rex.TERMINAL
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-private data class Pane(val sessionId: String, val blockId: String, val session: String, val window: String, val label: String, val multi: Boolean)
+private data class Pane(val sessionId: String, val windowId: String, val blockId: String, val session: String, val window: String, val label: String, val multi: Boolean)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+/** What a rename dialog is renaming: a window when [windowId] is set, else the session. */
+private data class Rename(val sessionId: String, val windowId: String?, val current: String)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddServer: () -> Unit) {
     val app = RexApp.instance
@@ -96,6 +101,19 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     // null: no dialog; "": new session; a session ID: new window in that session.
     var creating by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<Rename?>(null) }
+    fun rename(r: Rename, name: String) {
+        val h = hub ?: return
+        busy = true
+        scope.launch {
+            try {
+                if (r.windowId != null) h.renameWindow(r.sessionId, r.windowId, name) else h.renameSession(r.sessionId, name)
+                renaming = null
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(ctx, "Couldn't rename it: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            } finally { busy = false }
+        }
+    }
     fun create(target: String, name: String) {
         val h = hub ?: return
         busy = true
@@ -112,7 +130,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     val panes = sessions.flatMap { s ->
         s.windows.flatMap { w ->
             val terms = w.blocks.filter { it.creator == TERMINAL }
-            terms.map { b -> Pane(s.sessionId, b.blockId, s.label, w.label, b.label, terms.size > 1) }
+            terms.map { b -> Pane(s.sessionId, w.windowId, b.blockId, s.label, w.label, b.label, terms.size > 1) }
         }
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
@@ -223,9 +241,11 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                         val rot by animateFloatAsState(if (isCollapsed) -90f else 0f, label = "chevron")
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                collapsed.value = if (isCollapsed) collapsed.value - s.sessionId else collapsed.value + s.sessionId
-                            }.padding(start = 32.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
+                            modifier = Modifier.fillMaxWidth().combinedClickable(
+                                onClick = { collapsed.value = if (isCollapsed) collapsed.value - s.sessionId else collapsed.value + s.sessionId },
+                                onLongClickLabel = "Rename session",
+                                onLongClick = { renaming = Rename(s.sessionId, null, s.label) },
+                            ).padding(start = 32.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
                         ) {
                             Text(s.label.ifBlank { "Session" }, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                             val waiting = sPanes.count { live[it.blockId]?.top?.state == "blocked" }
@@ -246,6 +266,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             GroupItem(
                                 index = i, count = sPanes.size,
                                 onClick = { onOpen(p.sessionId, p.blockId) },
+                                onLongClick = { renaming = Rename(p.sessionId, p.windowId, p.window) },
                                 leading = { ProgramAvatar(prog, top) },
                                 headline = {
                                     Text(p.window + if (p.multi) " · ${p.label}" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -281,6 +302,17 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             busy = busy,
             onCreate = { create(target, it) },
             onDismiss = { if (!busy) creating = null },
+        )
+    }
+
+    renaming?.let { r ->
+        NewDialog(
+            title = if (r.windowId != null) "Rename window" else "Rename session",
+            hint = if (r.windowId != null) "Window name" else "Session name",
+            detail = "Shows on every Rex client. Leave it blank to go back to Rex's default name.",
+            busy = busy, initial = r.current, confirm = "Rename", icon = Icons.Default.Edit,
+            onCreate = { rename(r, it) },
+            onDismiss = { if (!busy) renaming = null },
         )
     }
 
@@ -328,18 +360,22 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun NewDialog(title: String, hint: String, detail: String, busy: Boolean, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf("") }
+private fun NewDialog(
+    title: String, hint: String, detail: String, busy: Boolean,
+    onCreate: (String) -> Unit, onDismiss: () -> Unit,
+    initial: String = "", confirm: String = "Create", icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Add,
+) {
+    var name by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Add, null) },
+        icon = { Icon(icon, null) },
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(detail, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = name, onValueChange = { name = it.take(128) }, singleLine = true, enabled = !busy,
-                    label = { Text("$hint (optional)") }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(if (initial.isEmpty()) "$hint (optional)" else hint) }, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (!busy) onCreate(name) }),
                 )
@@ -347,7 +383,7 @@ private fun NewDialog(title: String, hint: String, detail: String, busy: Boolean
         },
         confirmButton = {
             TextButton(onClick = { onCreate(name) }, enabled = !busy) {
-                if (busy) LoadingIndicator(Modifier.size(20.dp)) else Text("Create")
+                if (busy) LoadingIndicator(Modifier.size(20.dp)) else Text(confirm)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },

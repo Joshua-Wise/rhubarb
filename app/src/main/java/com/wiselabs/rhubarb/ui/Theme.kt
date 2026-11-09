@@ -1,5 +1,7 @@
 package com.wiselabs.rhubarb.ui
 
+import com.wiselabs.rhubarb.R
+
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
@@ -122,7 +124,12 @@ data class Program(
     val agent: Boolean = false,
     val drawable: Int? = null,
     val brandColor: Color? = null,
+    /** A text mark (e.g. π) for programs with no logo to show. */
+    val glyph: String? = null,
 )
+
+private val brandBlack = Color(0xFF1F2328)
+private fun brand(name: String, res: Int, color: Color) = Program(name, Icons.Default.SmartToy, agent = true, drawable = res, brandColor = color)
 
 /**
  * What's running in a terminal, from the status a program reports (e.g. claude-code) or its
@@ -136,8 +143,17 @@ fun programOf(l: BlockLive?): Program {
     fun has(vararg k: String) = k.any { app == it || name == it || path.contains("/$it/") || path.endsWith("/$it") }
     return when {
         has("claude-code", "claude") -> Program("Claude Code", Icons.Default.AutoAwesome, agent = true,
-            drawable = com.wiselabs.rhubarb.R.drawable.ic_claude, brandColor = Color(0xFFD97757))
-        has("codex", "opencode", "aider", "gemini", "pi") -> Program(app ?: name, Icons.Default.SmartToy, agent = true)
+            drawable = R.drawable.ic_claude, brandColor = Color(0xFFD97757))
+        has("gemini") -> brand("Gemini CLI", R.drawable.ic_gemini, Color(0xFF8E75B2))
+        has("copilot") -> brand("Copilot CLI", R.drawable.ic_copilot, brandBlack)
+        has("opencode") -> brand("OpenCode", R.drawable.ic_opencode, brandBlack)
+        has("cursor-agent", "cursor") -> brand("Cursor", R.drawable.ic_cursor, brandBlack)
+        has("qwen") -> brand("Qwen Code", R.drawable.ic_qwen, Color(0xFF6950EF))
+        has("vibe", "mistral") -> brand("Mistral Vibe", R.drawable.ic_mistral, Color(0xFFFA520F))
+        has("ollama") -> brand("Ollama", R.drawable.ic_ollama, brandBlack)
+        has("pi") -> Program("Pi", Icons.Default.SmartToy, agent = true, glyph = "π")
+        has("codex") -> Program("Codex", Icons.Default.SmartToy, agent = true)
+        has("aider", "goose", "crush", "amp", "kiro-cli", "droid", "kimi") -> Program(app ?: name, Icons.Default.SmartToy, agent = true)
         has("vim", "nvim", "vi", "hx", "helix", "nano", "emacs", "micro") -> Program(name, Icons.Default.EditNote)
         has("ssh", "mosh", "mosh-client", "et") -> Program(name, Icons.Default.Lan)
         has("git", "lazygit", "tig", "gitui") -> Program(name, Icons.Default.AccountTree)

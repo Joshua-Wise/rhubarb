@@ -171,6 +171,18 @@ class RexHub(
         _sessions.update { l -> if (l.any { it.sessionId == sid }) l.map { if (it.sessionId == sid) v else it } else l + v }
     }
 
+    /** Rename a window (an empty label restores Rex's default). */
+    suspend fun renameWindow(sid: String, windowId: String, label: String) {
+        control.call("session.set_window_label", buildJsonObject { put("session_id", sid); put("window_id", windowId); put("label", label.trim()) })
+        reattach(sid)
+    }
+
+    /** Rename a session (an empty label restores the name Rex gave it). */
+    suspend fun renameSession(sid: String, label: String) {
+        control.call("session.set_label", buildJsonObject { put("session_id", sid); put("label", label.trim()) })
+        reattach(sid)
+    }
+
     /** Start a session with one shell. Returns its session and block IDs. */
     suspend fun createSession(label: String?): Pair<String, String> {
         val r = control.call("session.create", buildJsonObject {

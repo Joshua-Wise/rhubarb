@@ -2,6 +2,7 @@ package com.wiselabs.rhubarb.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,10 +57,12 @@ fun groupShape(index: Int, count: Int): Shape {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun GroupItem(
     index: Int, count: Int,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     headline: @Composable () -> Unit,
     supporting: (@Composable () -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
@@ -71,7 +74,11 @@ fun GroupItem(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 1.dp),
     ) {
         ListItem(
-            modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+            modifier = when {
+                onLongClick != null -> Modifier.combinedClickable(onClick = onClick ?: {}, onLongClick = onLongClick)
+                onClick != null -> Modifier.clickable(onClick = onClick)
+                else -> Modifier
+            },
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             headlineContent = headline,
             supportingContent = supporting,
@@ -103,7 +110,9 @@ fun ProgramAvatar(program: Program, status: ProgramStatus?) {
         if (state != null && state != "idle") Badge(containerColor = statusColor(state))
     }) {
         Box(Modifier.size(40.dp).background(container, shape), contentAlignment = Alignment.Center) {
-            if (program.drawable != null) {
+            if (program.glyph != null) {
+                Text(program.glyph, color = content, style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            } else if (program.drawable != null) {
                 Icon(androidx.compose.ui.res.painterResource(program.drawable), contentDescription = program.name, tint = content, modifier = Modifier.size(22.dp))
             } else {
                 Icon(program.icon, contentDescription = program.name, tint = content, modifier = Modifier.size(22.dp))
