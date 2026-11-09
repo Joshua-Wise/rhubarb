@@ -5,6 +5,10 @@ Superlogical. Superlogical ships macOS (and is working on iOS); this app is an i
 unofficial client built on the API that every Rex server documents about itself at
 `GET /llms.txt`.
 
+| Sessions | Terminal | New session | Alerts |
+| :---: | :---: | :---: | :---: |
+| <img src="store/screenshots/1-home.png" alt="Home screen: sessions and tabs, each with the coding agent running in it" width="200"> | <img src="store/screenshots/2-terminal.png" alt="A pane running Claude Code, drawn by Ghostty, with the phone key bar" width="200"> | <img src="store/screenshots/3-new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> | <img src="store/screenshots/4-notification.png" alt="A notification that Claude Code finished" width="200"> |
+
 ## What it does
 
 - **Sessions at a glance**: every session, window, and terminal on your Mac, with each
