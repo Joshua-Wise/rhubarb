@@ -31,6 +31,7 @@ import dev.jwise.rhubarb.ui.ShareInbox
 import dev.jwise.rhubarb.ui.ShareTargetSheet
 import dev.jwise.rhubarb.ui.RexTheme
 import dev.jwise.rhubarb.ui.SettingsScreen
+import dev.jwise.rhubarb.ui.AddServerSheet
 import dev.jwise.rhubarb.ui.ServerScreen
 import dev.jwise.rhubarb.ui.TerminalScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,6 +90,21 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
         )
     }
 
+    // "add" from Home's host list, "change" from Settings; null when the sheet is closed.
+    var serverSheet by remember { mutableStateOf<String?>(null) }
+    serverSheet?.let { mode ->
+        AddServerSheet(
+            title = if (mode == "change") "Change server" else "Add server",
+            initialUrl = if (mode == "change") RexApp.instance.serverUrl.orEmpty() else "",
+            onDismiss = { serverSheet = null },
+            onSaved = {
+                serverSheet = null
+                hasServer = true
+                nav.popBackStack("home", inclusive = false)
+            },
+        )
+    }
+
     NavHost(nav, startDestination = if (hasServer) "home" else "server") {
         composable("server") {
             ServerScreen(onSaved = {
@@ -102,11 +118,11 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
             HomeScreen(
                 onOpen = { s, b -> nav.navigate("term/$s/$b") },
                 onSettings = { nav.navigate("settings") },
-                onAddServer = { nav.navigate("server") },
+                onAddServer = { serverSheet = "add" },
             )
         }
         composable("settings") {
-            SettingsScreen(onBack = { nav.popBackStack() }, onChangeServer = { nav.navigate("server") })
+            SettingsScreen(onBack = { nav.popBackStack() }, onChangeServer = { serverSheet = "change" })
         }
         composable("term/{sid}/{bid}") { e ->
             TerminalScreen(
