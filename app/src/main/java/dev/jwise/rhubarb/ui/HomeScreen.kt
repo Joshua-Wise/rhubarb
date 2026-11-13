@@ -200,7 +200,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                     val (dot, text) = when (conn) {
                         is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
                         is ConnState.Connecting -> "working" to "Connecting…"
-                        is ConnState.Failed -> "error" to "Offline"
+                        is ConnState.Failed -> "error" to "Offline · ${(conn as ConnState.Failed).reason}"
                         ConnState.Idle -> null to "Idle"
                     }
                     Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -331,7 +331,16 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 },
                                 supporting = {
                                     val line = top?.msg ?: l?.title?.ifBlank { null } ?: l?.pwd?.removePrefix("file://")?.substringAfter("/Users/")?.let { "~/" + it.substringAfter('/') }
-                                    line?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                                    Column {
+                                        line?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                                        // A program's own progress (OSC 9;4), such as a build or download.
+                                        l?.progress?.let { pct ->
+                                            val c = if (l.progressError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                            val m = Modifier.padding(top = 6.dp).fillMaxWidth()
+                                            if (pct < 0) androidx.compose.material3.LinearProgressIndicator(m, color = c)
+                                            else androidx.compose.material3.LinearProgressIndicator(progress = { pct / 100f }, modifier = m, color = c)
+                                        }
+                                    }
                                 },
                                 trailing = {
                                     statusLabel(top)?.let {

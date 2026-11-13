@@ -408,6 +408,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                             jsLog.takeIf { !useGhostty },
                             status,
                             "password prompt".takeIf { passwordPrompt },
+                            (conn as? dev.jwise.rhubarb.rex.ConnState.Failed)?.reason,
                             statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },
                             gridSize.ifBlank { null },

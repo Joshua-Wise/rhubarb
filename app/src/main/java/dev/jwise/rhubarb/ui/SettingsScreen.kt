@@ -23,6 +23,11 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -211,7 +216,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             SectionHeader("Terminal")
             val renderer by st.renderer.collectAsState()
             val fitToPhone by st.fitToPhone.collectAsState()
-            GroupItem(0, 2,
+            GroupItem(0, 4,
                 leading = { Icon(Icons.Default.Terminal, null) },
                 headline = { Text("Renderer") },
                 supporting = {
@@ -225,11 +230,23 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                         }
                     }
                 })
-            GroupItem(1, 2,
+            GroupItem(1, 4,
                 leading = { Icon(Icons.Default.PhoneAndroid, null) },
                 headline = { Text("Fit panes to phone") },
                 supporting = { Text("Resize a pane to this screen while you have it open. The Mac shows it at the phone's size until you leave.") },
                 trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
+            FlagItem(2, 4, st.programClipboard, Icons.Default.ContentCopy, "Programs can copy",
+                "When a program in the open pane copies text (Neovim, tmux), put it on this phone's clipboard")
+            FlagItem(3, 4, st.bellVibrate, Icons.Default.Vibration, "Vibrate on bell",
+                "A short buzz when a program in the open pane rings the bell")
+
+            SectionHeader("Coding agents")
+            FlagItem(0, 3, st.board, Icons.Default.Inbox, "Needs you board",
+                "Group agents on Home by what they need: waiting on you, failed, finished, working")
+            FlagItem(1, 3, st.answerButtons, Icons.Default.TouchApp, "Answer buttons",
+                "Show Claude Code's permission and question choices as buttons in the pane and in notifications")
+            FlagItem(2, 3, st.claudeBar, Icons.Default.Tune, "Claude Code controls",
+                "A strip above the keys in panes running Claude Code: permission mode, effort and slash commands")
 
             SectionHeader("About")
             GroupItem(0, 1,
@@ -277,4 +294,15 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
         )
     }
+}
+
+/** A settings row with a switch bound to a [dev.jwise.rhubarb.Settings.Flag]. */
+@Composable
+private fun FlagItem(index: Int, count: Int, flag: dev.jwise.rhubarb.Settings.Flag, icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, detail: String) {
+    val on by flag.value.collectAsState()
+    GroupItem(index, count, onClick = { flag.set(!on) },
+        leading = { Icon(icon, null) },
+        headline = { Text(title) },
+        supporting = { Text(detail) },
+        trailing = { Switch(on, onCheckedChange = { flag.set(it) }) })
 }
