@@ -86,6 +86,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -216,6 +217,37 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         if (share.images.isNotEmpty()) sendImages(share.images)
     }
 
+    // Events from this pane's program: clipboard copies (OSC 52) and the bell.
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(h) {
+        h.blockEvents.collect { ev ->
+            if (ev.blockId != blockId || !app.foreground) return@collect
+            when (ev.name) {
+                "clipboard_written" -> {
+                    if (!app.settings.programClipboard.value.value) return@collect
+                    val p = ev.payload
+                    val text = p?.get("text")?.jsonPrimitive?.contentOrNull ?: run {
+                        val bytes = p?.get("bytes")?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+                        if (bytes <= 0) return@collect
+                        runCatching { h.clipboardText(sessionId, blockId, p?.get("id")?.jsonPrimitive?.content?.toLongOrNull()) }.getOrNull()
+                    } ?: return@collect
+                    if (text.isEmpty()) return@collect
+                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Terminal", text))
+                    // Android 13 and later show their own "copied" confirmation.
+                    if (android.os.Build.VERSION.SDK_INT < 33)
+                        android.widget.Toast.makeText(ctx, "Copied from the terminal", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                "bell" -> if (app.settings.bellVibrate.value.value)
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            }
+        }
+    }
+
+    // At a password prompt (sudo, ssh) the keyboard becomes a password field. Rex has no event
+    // for this, so ask every second or so while the pane is open.
+    var passwordPrompt by remember { mutableStateOf(false) }
+
     // Find in scrollback (Ghostty renderer): matches oldest first; the newest is shown first.
     var finding by remember { mutableStateOf(false) }
     var findQuery by remember { mutableStateOf("") }
@@ -241,6 +273,16 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
 
     val ready = remember { CompletableDeferred<Unit>() }
     val inputView = remember { TermInputView(ctx, send = { s -> key(s) }, onImage = { u, mime -> sendImages(listOf(u to mime)) }) }
+    LaunchedEffect(h) {
+        while (true) {
+            if (app.foreground) {
+                val p = h.atPasswordPrompt(sessionId, blockId) == true
+                if (p != passwordPrompt) { passwordPrompt = p; inputView.secret = p }
+            }
+            delay(1200)
+        }
+    }
+
     var rx by remember { mutableStateOf(0L) }
     var jsLog by remember { mutableStateOf<String?>(null) }
     val webView = remember {
@@ -358,10 +400,12 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = {
                     Column {
-                        Text(window?.label ?: "Terminal", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val paneLabel = window?.blocks?.takeIf { it.size > 1 }?.firstOrNull { it.blockId == blockId }?.label
+                        Text(listOfNotNull(window?.label ?: "Terminal", paneLabel).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val sub = listOfNotNull(
                             jsLog.takeIf { !useGhostty },
                             status,
+                            "password prompt".takeIf { passwordPrompt },
                             statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },
                             gridSize.ifBlank { null },
@@ -406,6 +450,16 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         },
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().imePadding().navigationBarsPadding()) {
+            // OSC 9;4 progress from the program, under the title bar.
+            bl?.progress?.let { pct ->
+                val color = when {
+                    bl.progressError -> MaterialTheme.colorScheme.error
+                    bl.progressPaused -> MaterialTheme.colorScheme.outline
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                if (pct < 0) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth(), color = color)
+                else androidx.compose.material3.LinearProgressIndicator(progress = { pct / 100f }, modifier = Modifier.fillMaxWidth(), color = color)
+            }
             androidx.compose.foundation.layout.Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (useGhostty) {
                     GhosttyPane(

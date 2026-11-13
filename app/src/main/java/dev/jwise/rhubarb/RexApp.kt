@@ -24,6 +24,9 @@ class RexApp : Application() {
     /** Block currently open on screen; its notifications are suppressed. */
     @Volatile var visibleBlockId: String? = null
 
+    /** True while Rhubarb's UI is on screen (between the activity's onStart and onStop). */
+    @Volatile var foreground = false
+
     /** Number of reasons to keep the connection open (UI visible, watcher service running). */
     private var holds = 0
 

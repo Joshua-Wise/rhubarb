@@ -60,7 +60,7 @@ class RexControl(
     private val onConnected: suspend (RexControl, ConnState.Connected) -> Unit = { _, _ -> },
 ) {
     companion object {
-        const val API_REVISION = 11
+        const val API_REVISION = 13
         private const val TAG = "RexControl"
         val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
@@ -92,6 +92,10 @@ class RexControl(
     private val _events = MutableSharedFlow<JsonObject>(extraBufferCapacity = 512)
     /** Inner event objects: `{"type": "...", "payload": {...}}` (the `event` envelope is removed). */
     val events: SharedFlow<JsonObject> = _events
+
+    /** The API revision the server agreed to on the last welcome (0 until connected). */
+    @Volatile var apiRevision = 0
+        private set
 
     private var ws: WebSocket? = null
     private var reconnectToken: String? = null
@@ -165,6 +169,7 @@ class RexControl(
                     "welcome" -> {
                         val client = msg["client"]?.jsonObject
                         reconnectToken = client?.get("reconnect_token")?.jsonPrimitive?.content
+                        apiRevision = msg["api_revision"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
                         val resumed = client?.get("resumed")?.jsonPrimitive?.content == "true"
                         if (!resumed) generation++
                         val c = ConnState.Connected(
@@ -202,12 +207,11 @@ class RexControl(
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 webSocket.close(code, null)
-                closed.complete("closed $code $reason")
+                closed.complete(explainClose(code, reason))
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                val r = if (response?.code == 403) "forbidden (is this phone on the same Tailscale login?)" else (t.message ?: t.toString())
-                closed.complete(r)
+                closed.complete(explainFailure(baseUrl, t, response?.code))
             }
         })
     }
@@ -244,4 +248,38 @@ class RexControl(
         call(method, buildJsonObject {
             put("session_id", sessionId); put("block_id", blockId); put("args", args)
         })
+}
+
+private val tailscaleHost = Regex("""\.ts\.net(:\d+)?$""", RegexOption.IGNORE_CASE)
+
+/** Why the control connection couldn't be made, in words a person can act on. */
+internal fun explainFailure(baseUrl: String, t: Throwable, httpCode: Int?): String {
+    val host = baseUrl.substringAfter("://").substringBefore('/')
+    val onTailnet = tailscaleHost.containsMatchIn(host)
+    val tsHint = if (onTailnet) " Is Tailscale on and connected on this phone?" else ""
+    return when {
+        httpCode == 403 -> "The server turned this phone away. Sign in to Tailscale with the same account as the Mac."
+        httpCode == 404 -> "That address answered, but it isn't a Rex server."
+        httpCode != null && httpCode in 500..599 -> "The Rex server had an error ($httpCode). Try again in a moment."
+        httpCode != null -> "The server answered with HTTP $httpCode, not Rex."
+        t is java.net.UnknownHostException -> "Can't find $host.$tsHint Check the address."
+        t is java.net.ConnectException -> "Nothing is accepting connections at $host. Is the Rex server running" +
+            (if (onTailnet) " with Tailscale on (rex server tailscale on)?" else "?")
+        t is java.net.SocketTimeoutException -> "$host didn't answer.$tsHint"
+        t is java.net.NoRouteToHostException -> "No route to $host.$tsHint"
+        t is javax.net.ssl.SSLHandshakeException || t is javax.net.ssl.SSLPeerUnverifiedException ->
+            "$host's certificate isn't trusted, so the connection was refused for safety."
+        t is java.io.EOFException -> "$host closed the connection before answering."
+        else -> t.message ?: t.toString()
+    }
+}
+
+/** Why the server closed the control connection. */
+internal fun explainClose(code: Int, reason: String): String = when {
+    code == 1008 && reason.contains("revision", ignoreCase = true) ->
+        "This Rex server and Rhubarb don't share an API version: $reason. Update whichever is older."
+    code == 1008 -> "The server refused the connection" + (if (reason.isNotBlank()) ": $reason" else ".")
+    code == 1001 -> "The server is shutting down or restarting."
+    reason.isNotBlank() -> "Connection closed: $reason"
+    else -> "Connection closed ($code)."
 }

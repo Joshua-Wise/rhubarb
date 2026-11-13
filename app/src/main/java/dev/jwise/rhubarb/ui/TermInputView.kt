@@ -30,6 +30,17 @@ class TermInputView(
         isFocusableInTouchMode = true
     }
 
+    /**
+     * True while the program has turned echo off, as at a password prompt: the keyboard switches
+     * to a password field, so it hides what's typed and can offer the password manager.
+     */
+    var secret = false
+        set(v) {
+            if (field == v) return
+            field = v
+            context.getSystemService(InputMethodManager::class.java).restartInput(this)
+        }
+
     fun showKeyboard() {
         requestFocus()
         val imm = context.getSystemService(InputMethodManager::class.java)
@@ -44,10 +55,12 @@ class TermInputView(
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
         outAttrs.inputType = InputType.TYPE_CLASS_TEXT or
-            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+            (if (secret) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) or
             InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        // Terminal input (commands, passwords) shouldn't teach the keyboard new words.
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or
-            EditorInfo.IME_FLAG_NO_FULLSCREEN or EditorInfo.IME_ACTION_NONE
+            EditorInfo.IME_FLAG_NO_FULLSCREEN or EditorInfo.IME_ACTION_NONE or
+            EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
         val ic = object : BaseInputConnection(this, false) {
             private var composing = ""
 

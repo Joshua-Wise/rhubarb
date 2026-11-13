@@ -3,7 +3,9 @@ package dev.jwise.rhubarb.rex
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -17,6 +19,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+
+/** One block_event, for screens that follow a single pane (clipboard, bell…). */
+data class BlockEvent(val sessionId: String, val blockId: String, val name: String, val payload: JsonObject?)
 
 data class BlockInfo(val blockId: String, val label: String, val creator: String)
 data class WindowInfo(val windowId: String, val label: String, val focusedBlockId: String?, val blocks: List<BlockInfo>)
@@ -47,6 +52,11 @@ data class BlockLive(
     val processName: String? = null,
     val processPath: String? = null,
     val statuses: Map<String, ProgramStatus> = emptyMap(),
+    /** OSC 9;4 progress: 0-100, -1 while busy with no known progress, null when not shown. */
+    val progress: Int? = null,
+    /** True if the last progress report was 'error' (drawn red) or 'pause'. */
+    val progressError: Boolean = false,
+    val progressPaused: Boolean = false,
 ) {
     /** The most attention-worthy record. */
     val top: ProgramStatus?
@@ -117,6 +127,10 @@ class RexHub(
     val sessions: StateFlow<List<SessionInfo>> = _sessions
     private val _live = MutableStateFlow<Map<String, BlockLive>>(emptyMap())
     val live: StateFlow<Map<String, BlockLive>> = _live
+
+    private val _blockEvents = MutableSharedFlow<BlockEvent>(extraBufferCapacity = 64)
+    /** Every block_event as it arrives (no replay). */
+    val blockEvents: SharedFlow<BlockEvent> = _blockEvents
 
     val control = RexControl(baseUrl, scope, clientName, clientLabel, onConnected = { c, st -> onConnected(c, st) })
     val state get() = control.state
@@ -413,7 +427,20 @@ class RexHub(
                                 }
                             }
                             "pwd_changed" -> updateLive(bid) { it.copy(pwd = bp?.get("pwd")?.jsonPrimitive?.contentOrNull ?: it.pwd) }
+                            "progress_report" -> {
+                                val st = bp?.get("state")?.jsonPrimitive?.contentOrNull
+                                val pct = bp?.get("progress")?.jsonPrimitive?.intOrNull?.coerceIn(0, 100)
+                                updateLive(bid) {
+                                    when (st) {
+                                        "remove", null -> it.copy(progress = null, progressError = false, progressPaused = false)
+                                        "indeterminate" -> it.copy(progress = -1, progressError = false, progressPaused = false)
+                                        else -> it.copy(progress = pct ?: it.progress ?: -1, progressError = st == "error", progressPaused = st == "pause")
+                                    }
+                                }
+                            }
+                            "child_exited" -> updateLive(bid) { it.copy(progress = null) }
                         }
+                        _blockEvents.tryEmit(BlockEvent(sid, bid, name, bp))
                         onBlockEvent(sid, bid, name, bp, this)
                     }
                 }
@@ -427,6 +454,62 @@ class RexHub(
     fun describe(blockId: String): String {
         val s = sessionOf(blockId); val w = windowOf(blockId)
         return listOfNotNull(s?.label?.ifBlank { null }, w?.label?.ifBlank { null }).joinToString(" › ").ifBlank { "Rex" }
+    }
+
+    /** Text a program copied (OSC 52) too large to fit in its clipboard_written event. */
+    suspend fun clipboardText(sid: String, blockId: String, id: Long?): String {
+        val out = StringBuilder()
+        var copy = id ?: 0L
+        var offset = 0L
+        var guard = 0
+        while (guard++ < 64) {
+            val r = control.blockCall(sid, blockId, "$TERMINAL.clipboard_read", buildJsonObject {
+                put("id", copy); put("offset", offset); put("max_bytes", 512 * 1024)
+            })!!.jsonObject
+            copy = r["id"]?.jsonPrimitive?.longOrNull ?: copy
+            val data = r["data"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            out.append(data); offset += data.toByteArray().size
+            if (r["eof"]?.jsonPrimitive?.contentOrNull == "true" || data.isEmpty()) break
+        }
+        return out.toString()
+    }
+
+    /** Rename a pane (block); an empty label restores Rex's default. */
+    suspend fun renameBlock(sid: String, blockId: String, label: String) {
+        control.call("session.set_block_label", buildJsonObject { put("session_id", sid); put("block_id", blockId); put("label", label.trim()) })
+        reattach(sid)
+    }
+
+    /**
+     * True at a password prompt: echo off while input still comes a line at a time (sudo, ssh).
+     * Full-screen programs (vim, Claude Code) turn echo off too, but read keys one by one.
+     * Null if the server can't tell (Windows, or an older server).
+     */
+    suspend fun atPasswordPrompt(sid: String, blockId: String): Boolean? = try {
+        val m = control.blockCall(sid, blockId, "$TERMINAL.input_mode")?.jsonObject
+        val echo = m?.get("echo")?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+        val canonical = m?.get("canonical")?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+        if (echo == null || canonical == null) null else !echo && canonical
+    } catch (e: Exception) { null }
+
+    /** A directory on the pane's machine with its subfolders and files, for the download browser. */
+    data class Listing(val path: String, val home: String, val status: String, val dirs: List<String>, val files: List<String>, val truncated: Boolean)
+
+    suspend fun listDir(sid: String, blockId: String, path: String): Listing {
+        val r = control.blockCall(sid, blockId, "$TERMINAL.list_dir", buildJsonObject { put("path", path); put("files", true) })!!.jsonObject
+        val dirs = mutableListOf<String>(); val files = mutableListOf<String>()
+        (r["entries"] as? JsonArray).orEmpty().forEach { e ->
+            val o = e.jsonObject
+            val n = o["name"]?.jsonPrimitive?.contentOrNull ?: return@forEach
+            if (o["file"]?.jsonPrimitive?.contentOrNull == "true") files += n else dirs += n
+        }
+        return Listing(
+            r["path"]?.jsonPrimitive?.contentOrNull ?: path,
+            r["home"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            r["status"]?.jsonPrimitive?.contentOrNull ?: "ok",
+            dirs.sortedBy { it.lowercase() }, files.sortedBy { it.lowercase() },
+            r["truncated"]?.jsonPrimitive?.contentOrNull == "true",
+        )
     }
 
     // ---- input ----

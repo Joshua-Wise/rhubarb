@@ -58,8 +58,8 @@ class MainActivity : ComponentActivity() {
         IncomingShare.from(i)?.let { ShareInbox.waiting.value = it }
     }
 
-    override fun onStart() { super.onStart(); (application as RexApp).acquire() }
-    override fun onStop() { (application as RexApp).release(); super.onStop() }
+    override fun onStart() { super.onStart(); (application as RexApp).run { foreground = true; acquire() } }
+    override fun onStop() { (application as RexApp).run { foreground = false; release() }; super.onStop() }
 }
 
 @Composable

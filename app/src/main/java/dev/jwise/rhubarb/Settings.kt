@@ -77,6 +77,24 @@ class Settings(private val ctx: Context) {
     val notifyPrograms: StateFlow<Boolean> = _notifyPrograms
     fun setNotifyPrograms(v: Boolean) { p.edit().putBoolean("notify_programs", v).apply(); _notifyPrograms.value = v }
 
+    /** A boolean preference as a StateFlow plus its setter. */
+    inner class Flag(private val key: String, default: Boolean) {
+        private val f = flow(p.getBoolean(key, default))
+        val value: StateFlow<Boolean> = f
+        fun set(v: Boolean) { p.edit().putBoolean(key, v).apply(); f.value = v }
+    }
+
+    /** Text a program copies (OSC 52) goes to the phone's clipboard while its pane is open. */
+    val programClipboard = Flag("program_clipboard", true)
+    /** A short vibration when a program in the open pane rings the bell. */
+    val bellVibrate = Flag("bell_vibrate", true)
+    /** Claude Code's permission and question menus as buttons, in the pane and in notifications. */
+    val answerButtons = Flag("answer_buttons", true)
+    /** The strip of Claude Code controls (mode, effort, slash commands) above the key bar. */
+    val claudeBar = Flag("claude_bar", true)
+    /** Home's "Needs you" board: agents grouped by what they need, above the session list. */
+    val board = Flag("board", true)
+
     companion object {
         /** Compare servers by host name, ignoring scheme and trailing slashes. */
         fun hostKey(url: String) = url.trim().lowercase().substringAfter("://").substringBefore('/').trimEnd('/')

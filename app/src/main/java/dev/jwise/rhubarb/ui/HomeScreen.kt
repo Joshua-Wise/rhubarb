@@ -97,8 +97,8 @@ private fun MenuItem(text: String, icon: androidx.compose.ui.graphics.vector.Ima
     )
 }
 
-/** What a rename dialog is renaming: a window when [windowId] is set, else the session. */
-private data class Rename(val sessionId: String, val windowId: String?, val current: String)
+/** What a rename dialog is renaming: a pane when [blockId] is set, a window when [windowId] is, else the session. */
+private data class Rename(val sessionId: String, val windowId: String?, val current: String, val blockId: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -125,7 +125,11 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
         busy = true
         scope.launch {
             try {
-                if (r.windowId != null) h.renameWindow(r.sessionId, r.windowId, name) else h.renameSession(r.sessionId, name)
+                when {
+                    r.blockId != null -> h.renameBlock(r.sessionId, r.blockId, name)
+                    r.windowId != null -> h.renameWindow(r.sessionId, r.windowId, name)
+                    else -> h.renameSession(r.sessionId, name)
+                }
                 renaming = null
             } catch (e: Exception) {
                 android.widget.Toast.makeText(ctx, "Couldn't rename it: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
@@ -338,6 +342,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             DropdownMenu(expanded = menuFor == "p:" + p.blockId, onDismissRequest = { menuFor = null },
                                 offset = androidx.compose.ui.unit.DpOffset(32.dp, 0.dp)) {
                                 MenuItem("Rename tab", Icons.Default.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.window) }
+                                if (p.multi) MenuItem("Rename pane", Icons.Default.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.label, p.blockId) }
                                 if (wi > 0) MenuItem("Move tab up", Icons.Default.ArrowUpward) {
                                     act("move it") { it.moveWindow(p.sessionId, p.windowId, wins[wi - 1].windowId) }
                                 }
@@ -390,8 +395,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 
     renaming?.let { r ->
         NewDialog(
-            title = if (r.windowId != null) "Rename tab" else "Rename session",
-            hint = if (r.windowId != null) "Tab name" else "Session name",
+            title = when { r.blockId != null -> "Rename pane"; r.windowId != null -> "Rename tab"; else -> "Rename session" },
+            hint = when { r.blockId != null -> "Pane name"; r.windowId != null -> "Tab name"; else -> "Session name" },
             detail = "Shows on every Rex client.",
             busy = busy, initial = r.current, confirm = "Rename", icon = Icons.Default.Edit,
             onCreate = { rename(r, it) },
