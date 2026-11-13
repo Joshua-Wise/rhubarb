@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.ZoomIn
@@ -247,6 +248,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     // At a password prompt (sudo, ssh) the keyboard becomes a password field. Rex has no event
     // for this, so ask every second or so while the pane is open.
     var passwordPrompt by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
 
     // Find in scrollback (Ghostty renderer): matches oldest first; the newest is shown first.
     var finding by remember { mutableStateOf(false) }
@@ -437,6 +439,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                             }
                             if (useGhostty) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Icons.Default.Search, null) },
                                 onClick = { paneMenu = false; compose = false; finding = true })
+                            if (h.control.apiRevision >= dev.jwise.rhubarb.rex.RexDownload.MIN_REVISION)
+                                DropdownMenuItem(text = { Text("Download a file") }, leadingIcon = { Icon(Icons.Default.Download, null) },
+                                    onClick = { paneMenu = false; downloading = true })
                             DropdownMenuItem(text = { Text("Share output") }, leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = { run("share it") { sharePaneText(ctx, h, sessionId, blockId, window?.label ?: "Terminal") } })
                             DropdownMenuItem(text = { Text("Clear screen") }, leadingIcon = { Icon(Icons.Default.ClearAll, null) },
@@ -517,6 +522,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             }
         }
     }
+    if (downloading) DownloadSheet(h, sessionId, blockId, bl?.pwd, onDismiss = { downloading = false })
 }
 
 data class PhoneGrid(val cols: Int, val rows: Int, val cellW: Int, val cellH: Int)
