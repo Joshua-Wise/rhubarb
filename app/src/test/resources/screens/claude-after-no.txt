@@ -1,0 +1,31 @@
+# cursor_row=26 cursor_col=2 cols=46 rows=30
+
+⏺ Volcanoes are openings in the Earth's crust
+  through which molten rock, gas, and ash
+  escape from the interior. They are among the
+  most dramatic expressions of the planet's
+  internal heat, and they have sh
+  ⎿  Interrupted· What should Claude do
+
+❯ Write a 600-word essay about glaciers as
+  plain text. Don't use any tools.
+
+⏺ Glaciers are slow-moving rivers of ice,
+  formed over centuries from snow that never
+  fully melts. Each winter's snowfall lands on
+  ⎿  Interrupted· What should Claude do
+
+❯ Use the Write tool to create hello.txt
+  containing the single line: hi
+
+⏺ Write(hello.txt)
+  ⎿  User rejected write to hello.txt
+      1 hi
+
+✻ Crunched for 2s · done 1:37 AM
+                          ◐ medium · /effort
+──────────────────────────────────────────────
+❯
+──────────────────────────────────────────────
+  Alex │ Haiku 5.5@medium │ ▁ 51.0k/1M 5% │…
+  ⏸ manual mode on

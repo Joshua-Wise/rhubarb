@@ -1,0 +1,31 @@
+# cursor_row=15 cursor_col=0 cols=46 rows=30
+  carrying a record of conditions that existed
+  billions of years ago, and each visit
+  offers a rare chance to read that record.
+
+✻ Brewed for 5s · done 1:35 AM
+
+❯ Use the AskUserQuestion tool to ask me
+  which of three colours I prefer: red, green
+  or blue. Give each option a short
+  description.
+──────────────────────────────────────────────
+ ☐ Colour
+
+Which of these three colours do you prefer?
+
+❯ 1. Red
+     A bold, warm colour that signals energy
+     and urgency.
+  2. Green
+     A calm, natural colour associated with
+     growth and balance.
+  3. Blue
+     A cool, steady colour linked to trust and
+     clarity.
+  4. Type something.
+──────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to
+cancel

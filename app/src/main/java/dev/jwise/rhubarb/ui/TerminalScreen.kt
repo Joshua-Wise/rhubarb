@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -218,6 +220,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         if (share.images.isNotEmpty()) sendImages(share.images)
     }
 
+    // Whatever the pane's program reports while it's open counts as seen (for Home's board).
+    LaunchedEffect(bl?.top?.updatedAt) { app.settings.markSeen(blockId, bl?.top?.updatedAt) }
+
     // Events from this pane's program: clipboard copies (OSC 52) and the bell.
     val view = androidx.compose.ui.platform.LocalView.current
     LaunchedEffect(h) {
@@ -287,6 +292,54 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
 
     var rx by remember { mutableStateOf(0L) }
     var jsLog by remember { mutableStateOf<String?>(null) }
+
+    // Claude Code panes: read the bottom of the screen after output settles, for the answer card,
+    // the controls strip and the message box.
+    val isClaude = programOf(bl).name == "Claude Code"
+    val answerOn by app.settings.answerButtons.value.collectAsState()
+    val stripOn by app.settings.claudeBar.value.collectAsState()
+    var claude by remember { mutableStateOf<dev.jwise.rhubarb.agent.ClaudeScreen?>(null) }
+    var readTick by remember { mutableStateOf(0) }
+    LaunchedEffect(isClaude) {
+        if (!isClaude) { claude = null; return@LaunchedEffect }
+        var seenRx = -1L; var seenTick = -1; var last = 0L
+        while (true) {
+            val now = System.currentTimeMillis()
+            if (app.foreground && (rx != seenRx || readTick != seenTick || now - last > 5000)) {
+                seenRx = rx; seenTick = readTick; last = now
+                dev.jwise.rhubarb.agent.PromptAnswers.read(h, sessionId, blockId)?.let { claude = it }
+            }
+            delay(450)
+        }
+    }
+    // The message box is the easiest way to talk to an agent, so it starts open.
+    LaunchedEffect(isClaude) { if (isClaude) compose = true }
+    var answering by remember { mutableStateOf(false) }
+    fun answer(p: dev.jwise.rhubarb.agent.MenuPrompt, o: dev.jwise.rhubarb.agent.MenuOption) {
+        answering = true
+        scope.launch {
+            val r = dev.jwise.rhubarb.agent.PromptAnswers.answer(h, sessionId, blockId, p, o.number)
+            answering = false; readTick++
+            when (r) {
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.CHANGED -> "Nothing pressed: the question changed"
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.UNREACHABLE -> "Nothing pressed: couldn't reach Rex"
+                else -> null
+            }?.let { android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_SHORT).show() }
+        }
+    }
+    /** Send the message box: paste it, then Enter. Empty: Enter, or Esc to stop Claude while it works. */
+    fun sendMessage() {
+        if (input.isNotEmpty()) {
+            if (claude?.prompt != null) {
+                android.widget.Toast.makeText(ctx, "Answer the question first", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            val text = input; input = ""
+            pasteText(text)
+            inputs.trySend { delay(150); h.write(sessionId, blockId, "\r") }
+        } else if (claude?.working == true) send("\u001b") else key("\r")
+    }
+    fun command(c: String) { jumpToLive(); send(c); inputs.trySend { delay(120); h.write(sessionId, blockId, "\r") }; readTick++ }
     val webView = remember {
         WebView(ctx).apply {
             // Without explicit MATCH_PARENT, AndroidView gives the WebView WRAP_CONTENT and it
@@ -486,6 +539,12 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                         onCancel = { uploadJob?.cancel(); upload = null })
                 }
             }
+            if (!finding && isClaude) {
+                claude?.prompt?.takeIf { answerOn && it.answers.isNotEmpty() }?.let { p ->
+                    AnswerCard(p, answering) { o -> answer(p, o) }
+                }
+                if (stripOn) ClaudeStrip(claude, onKeys = { k -> jumpToLive(); send(k); scope.launch { delay(400); readTick++ } }, onCommand = ::command)
+            }
             if (finding) FindBar(
                 query = findQuery, onQuery = { findQuery = it },
                 count = matches.size, position = if (matchIndex < 0) 0 else matches.size - matchIndex,
@@ -510,14 +569,18 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     OutlinedTextField(
                         value = input, onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Compose a message…") },
+                        placeholder = { Text(if (isClaude) "Message Claude…" else "Compose a message…") },
                         textStyle = MaterialTheme.typography.bodyMedium,
                         maxLines = 5,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { key(input + "\r"); input = "" }),
+                        keyboardActions = KeyboardActions(onSend = { sendMessage() }),
                     )
-                    IconButton(onClick = { if (input.isEmpty()) key("\r") else { key(input + "\r"); input = "" } }) {
-                        Icon(Icons.AutoMirrored.Filled.Send, "Send")
+                    IconButton(onClick = ::sendMessage) {
+                        when {
+                            input.isNotEmpty() -> Icon(Icons.AutoMirrored.Filled.Send, "Send")
+                            claude?.working == true -> Icon(Icons.Default.Stop, "Stop", tint = MaterialTheme.colorScheme.error)
+                            else -> Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Press Enter")
+                        }
                     }
                 }
             }

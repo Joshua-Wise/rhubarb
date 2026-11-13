@@ -1,0 +1,31 @@
+# cursor_row=26 cursor_col=2 cols=46 rows=30
+  solar system, icy remnants left over from
+  the cloud of gas and dust that formed the
+  Sun and planets about 4.6 billion years ago.
+  Most of them never change much, locked in
+  the cold outer reaches of the solar system.
+  Occasionally, one is nudged inward by the
+  gravity of a passing star or a giant planet,
+  and it begins a journey that can make it
+  visible from Earth for weeks or months.
+
+  A comet's nucleus is typically only a few
+  kilometers across, a loose mixture of water
+  ice, frozen carbon dioxide and carbon
+  monoxide, ammonia, methane, and dust.
+  Astronomers often describe it as a dirty
+  snowball, though that picture is somewhat
+  misleading, since the material is more
+  fragile and porous than ordinary snow. The
+  nucleus is too small to show up as a point
+  of light until it nears the Sun.
+
+  As a comet approaches the Sun, its ices
+  begin to sublimate, turning directly from
+  solid to gas. This gas streams away from the
+
+──────────────────────────────────────────────
+❯
+──────────────────────────────────────────────
+  Alex │ Haiku 5.5@medium │ ▁ 48.3k/1M 5% │…
+  ⏸ manual mode on

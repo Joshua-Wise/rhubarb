@@ -39,6 +39,20 @@ GitHub builds are signed differently and can't update each other, so stick with 
   long), clears the screen, or resets the terminal.
 - **Share into a pane**: share text or images from any app to Rhubarb and pick a tab. Text is
   pasted at the prompt (not sent), and images go to the Mac like the image button.
+- **Claude Code from the phone**: when Claude Code asks for permission or asks a question, its
+  options show as buttons in the pane, on Home and on the notification. The screen is read again
+  before a button presses anything, so a stale question is never answered. In Claude Code panes a
+  message box sends whole messages (or Stop while it works), and a strip of controls switches the
+  permission mode, sets the effort level and runs common slash commands.
+- **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
+  working) with how long ago each changed. Finished work stays until you open it or clear it.
+  Turn it off in Settings.
+- **Download files from the Mac**: ⋮ → Download a file browses the pane's machine from its
+  folder; save, open or share what you pick. Needs Rex API revision 13.
+- **Programs can copy to the phone**: text a program copies with OSC 52 (Neovim, tmux) lands on
+  the phone's clipboard while its pane is open. Programs' progress bars (OSC 9;4) show on the
+  pane and on Home, the bell buzzes, and at a password prompt the keyboard turns into a password
+  field.
 - **Add a server by QR**: run `rex server tailscale pair` on the Mac and tap **Scan QR code**
   on the Connect screen. Scanning happens on the phone with ZXing; nothing is sent anywhere.
 - **Settings** shows the Rex server's version and Tailscale name. Hold a saved host to forget it.
@@ -57,6 +71,7 @@ GitHub builds are signed differently and can't update each other, so stick with 
   image from the keyboard) sends pictures to the pane's machine. Rex saves them and types their
   paths into the terminal, so you can hand Claude Code a screenshot. Needs a Rex server with
   API revision 11.
+- **Rename panes**: when a tab has several panes, hold one on Home to rename it.
 
 ## How it connects
 
@@ -129,6 +144,8 @@ app/src/main/java/dev/jwise/rhubarb/
   rex/RexControl.kt      control WebSocket: hello/welcome, requests, events, reconnect token
   rex/TerminalStream.kt  data WebSocket: ticket HELLO, RESUME w/ exact byte count, APC parsing
   rex/RexHub.kt          live model: sessions, views, titles, program statuses
+  rex/RexDownload.kt     files from the pane's machine (download_begin + rex.data.bytes.v1)
+  agent/                 reading and answering Claude Code's menus, mode and effort
   service/Notifier.kt    events -> notifications (+ Reply action)
   service/WatchService.kt foreground service keeping the connection alive
   ui/                    Compose screens (server setup, home, terminal)
@@ -139,4 +156,5 @@ app/src/main/assets/term/ xterm.js 5.5.0 (MIT) host page
 
 [MIT](LICENSE). Bundled third-party pieces keep their own licenses: Ghostty's terminal engine
 and xterm.js are MIT, the QR scanner (ZXing and zxing-android-embedded) is Apache 2.0, and the
-agent marks come from Simple Icons (CC0; the Copilot mark is MIT).
+agent marks come from Simple Icons (CC0; the Copilot mark is MIT). The Claude Code prompt
+handling follows [chompy](https://github.com/jeffarese/chompy) (Apache 2.0); see [NOTICE](NOTICE).

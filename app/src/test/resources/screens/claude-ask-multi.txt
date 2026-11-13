@@ -1,0 +1,31 @@
+# cursor_row=14 cursor_col=0 cols=46 rows=30
+
+
+⏺ You prefer blue.
+
+✻ Sautéed for 2s · done 1:35 AM
+
+❯ Use the AskUserQuestion tool with
+  multiSelect set to true to ask me which
+  fruits I like: apple, banana, cherry.
+──────────────────────────────────────────────
+←  ☐ Fruits  ✔ Submit  →
+
+Which fruits do you like?
+
+❯ 1. [ ] Apple
+         Crisp and sweet, sold year-round in
+         most places.
+  2. [ ] Banana
+         Soft, creamy and easy to carry as a
+         quick snack.
+  3. [ ] Cherry
+         Small, juicy and often eaten fresh or
+         in desserts.
+  4. [ ] Type something
+     Submit
+──────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to
+cancel

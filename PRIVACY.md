@@ -1,6 +1,6 @@
 # Rhubarb Privacy Policy
 
-_Last updated: November 9, 2026 (camera and sharing added for version 0.15)_
+_Last updated: November 13, 2026 (file downloads and the clipboard added for version 0.16)_
 
 Rhubarb is an unofficial Android client for [Rex](https://superlogical.com), a terminal app for the Mac. It connects your Android device to a Rex server that you run yourself. Rhubarb is not affiliated with Superlogical.
 
@@ -25,6 +25,7 @@ Rhubarb connects only to the server addresses you enter. Over that connection it
 - Terminal input and output for the sessions you open.
 - Requests to create, rename, reorder or close sessions and tabs.
 - Images you choose to send to a terminal, from the photo picker, the clipboard or your keyboard.
+- Files you choose to download from your Mac. They're kept in the app's private cache until you save, open or share them, and Android clears that cache when it needs space.
 - Your device's name, so the server can show which device is connected.
 
 That server is yours. What happens to the data there is up to you and Rex's own policies. Rhubarb doesn't send any of it anywhere else.
@@ -32,6 +33,10 @@ That server is yours. What happens to the data there is up to you and Rex's own 
 ## Notifications
 
 When you turn on alerts, Rhubarb keeps a connection to your Rex server in the background and shows notifications when a session needs your attention. These notifications are created on your device from what your server reports. They don't go through Google's push service or any other third party.
+
+## Clipboard
+
+When a program in the pane you have open copies text (for example Neovim or tmux, using OSC 52), Rhubarb puts that text on your phone's clipboard. This happens only while that pane is open and Rhubarb is on screen, and you can turn it off in Settings. Rhubarb reads your clipboard only when you tap Paste.
 
 ## Sharing
 

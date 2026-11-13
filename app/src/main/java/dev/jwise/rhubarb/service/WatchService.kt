@@ -78,7 +78,8 @@ class WatchService : Service() {
 /** Handles the notification "Reply" action: types the text plus Enter into the terminal. */
 class ReplyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        // Allow/Deny send their keys as-is; a typed reply gets Enter.
+        if (intent.action == Notifier.ACTION_ANSWER) { answer(context, intent); return }
+        // Keys are sent as-is; a typed reply gets Enter.
         val text = intent.getStringExtra(Notifier.EXTRA_KEYS)
             ?: RemoteInput.getResultsFromIntent(intent)?.getCharSequence(Notifier.KEY_REPLY)?.toString()?.plus("\r")
             ?: return
@@ -92,6 +93,40 @@ class ReplyReceiver : BroadcastReceiver() {
                 hub?.write(sid, bid, text)
                 app.notifier.cancel(bid)
             } catch (_: Exception) {
+            } finally {
+                app.release(); pending.finish()
+            }
+        }
+    }
+
+    /** A menu option button: re-read the screen and press it only if the same menu still shows. */
+    private fun answer(context: Context, intent: Intent) {
+        val sid = intent.getStringExtra(Notifier.EXTRA_SESSION) ?: return
+        val bid = intent.getStringExtra(Notifier.EXTRA_BLOCK) ?: return
+        val number = intent.getIntExtra(Notifier.EXTRA_NUMBER, -1).takeIf { it > 0 } ?: return
+        val labels = intent.getStringArrayListExtra(Notifier.EXTRA_LABELS) ?: return
+        val asked = dev.jwise.rhubarb.agent.MenuPrompt(
+            intent.getStringExtra(Notifier.EXTRA_QUESTION), emptyList(),
+            labels.mapIndexed { i, l -> dev.jwise.rhubarb.agent.MenuOption(i + 1, l, null, false) },
+        )
+        val app = context.applicationContext as RexApp
+        val pending = goAsync()
+        app.scope.launch {
+            val hub = app.acquire()
+            try {
+                // A fresh connection needs a moment before it can read the pane.
+                hub?.control?.call("server.version")
+                val r = if (hub == null) dev.jwise.rhubarb.agent.PromptAnswers.Result.UNREACHABLE
+                    else dev.jwise.rhubarb.agent.PromptAnswers.answer(hub, sid, bid, asked, number)
+                when (r) {
+                    dev.jwise.rhubarb.agent.PromptAnswers.Result.ANSWERED -> app.notifier.cancel(bid)
+                    dev.jwise.rhubarb.agent.PromptAnswers.Result.UNCONFIRMED -> app.notifier.answerOutcome(sid, bid, "Sent “${labels[number - 1]}”. Open the pane to check it took.")
+                    dev.jwise.rhubarb.agent.PromptAnswers.Result.CHANGED -> app.notifier.answerOutcome(sid, bid, "Nothing pressed: the question changed. Open the pane to see it.")
+                    dev.jwise.rhubarb.agent.PromptAnswers.Result.UNREACHABLE -> app.notifier.answerOutcome(sid, bid, "Nothing pressed: couldn't reach Rex.")
+                    dev.jwise.rhubarb.agent.PromptAnswers.Result.BUSY -> Unit
+                }
+            } catch (_: Exception) {
+                app.notifier.answerOutcome(sid, bid, "Nothing pressed: couldn't reach Rex.")
             } finally {
                 app.release(); pending.finish()
             }

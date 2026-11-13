@@ -61,6 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -168,6 +169,45 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
         }
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
+
+    // The "Needs you" board: what each agent needs, grouped. Finished and failed work stays until
+    // its pane is opened or its card cleared.
+    val boardOn by app.settings.board.value.collectAsState()
+    val answerOn by app.settings.answerButtons.value.collectAsState()
+    val seen by app.settings.seen.collectAsState()
+    fun unseen(p: Pane) = live[p.blockId]?.top?.let { seen[p.blockId] != it.updatedAt } == true
+    val groups = listOf(
+        "Needs you" to attention,
+        "Failed" to panes.filter { live[it.blockId]?.top?.state == "error" && unseen(it) },
+        "Finished" to panes.filter { live[it.blockId]?.top?.state == "done" && unseen(it) },
+        "Working" to panes.filter { live[it.blockId]?.top?.state == "working" },
+    ).filter { it.second.isNotEmpty() }
+    // Claude Code's menus in waiting panes, read off their screens for answer buttons.
+    var prompts by remember { mutableStateOf(emptyMap<String, dev.jwise.rhubarb.agent.MenuPrompt>()) }
+    val waitingKey = attention.map { it.blockId + "@" + live[it.blockId]?.top?.updatedAt }
+    LaunchedEffect(waitingKey, answerOn, boardOn, hub) {
+        val h = hub
+        if (!answerOn || !boardOn || h == null) { prompts = emptyMap(); return@LaunchedEffect }
+        prompts = attention.filter { programOf(live[it.blockId]).name == "Claude Code" }.mapNotNull { p ->
+            dev.jwise.rhubarb.agent.PromptAnswers.awaitPrompt(h, p.sessionId, p.blockId, 3_000)?.let { p.blockId to it }
+        }.toMap()
+    }
+    var answeringIn by remember { mutableStateOf<String?>(null) }
+    fun answer(p: Pane, mp: dev.jwise.rhubarb.agent.MenuPrompt, o: dev.jwise.rhubarb.agent.MenuOption) {
+        val h = hub ?: return
+        answeringIn = p.blockId
+        scope.launch {
+            val r = dev.jwise.rhubarb.agent.PromptAnswers.answer(h, p.sessionId, p.blockId, mp, o.number)
+            answeringIn = null
+            when (r) {
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.ANSWERED -> prompts = prompts - p.blockId
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.CHANGED -> "Nothing pressed: the question changed"
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.UNREACHABLE -> "Nothing pressed: couldn't reach Rex"
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.UNCONFIRMED -> "Sent “${o.label}”; open the pane to check"
+                dev.jwise.rhubarb.agent.PromptAnswers.Result.BUSY -> null
+            }?.let { if (it is String) android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_SHORT).show() }
+        }
+    }
     val title = hostLabel ?: app.defaultHostLabel()
 
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
@@ -241,7 +281,20 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                     item { Centered { ContainedLoadingIndicator() } }
                 }
 
-                if (attention.isNotEmpty()) {
+                if (boardOn) for ((group, list) in groups) {
+                    item(key = "g:$group") { SectionHeader("$group · ${list.size}") }
+                    itemsIndexed(list, key = { _, p -> "b:$group:" + p.blockId }) { _, p ->
+                        BoardCard(
+                            p, live[p.blockId], group,
+                            prompt = prompts[p.blockId].takeIf { group == "Needs you" },
+                            busy = answeringIn == p.blockId,
+                            onOpen = { onOpen(p.sessionId, p.blockId) },
+                            onClear = { app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt) },
+                            onAnswer = { mp, o -> answer(p, mp, o) },
+                        )
+                    }
+                }
+                if (!boardOn && attention.isNotEmpty()) {
                     item { SectionHeader("Needs you") }
                     itemsIndexed(attention, key = { _, p -> "a" + p.blockId }) { _, p ->
                         val l = live[p.blockId]; val top = l?.top; val prog = programOf(l)
@@ -499,3 +552,71 @@ private fun NewDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
     )
 }
+
+/** "now", "4m", "2h", "3d" since an RFC 3339 time. */
+private fun ago(stamp: String?): String? = try {
+    val d = java.time.Duration.between(java.time.Instant.parse(stamp ?: return null), java.time.Instant.now())
+    when {
+        d.toMinutes() < 1 -> "now"
+        d.toHours() < 1 -> "${d.toMinutes()}m"
+        d.toDays() < 1 -> "${d.toHours()}h"
+        else -> "${d.toDays()}d"
+    }
+} catch (e: Exception) { null }
+
+/** One agent on the board: what it's doing or needs, and how long ago that changed. */
+@Composable
+private fun BoardCard(
+    p: Pane, l: dev.jwise.rhubarb.rex.BlockLive?, group: String,
+    prompt: dev.jwise.rhubarb.agent.MenuPrompt?, busy: Boolean,
+    onOpen: () -> Unit, onClear: () -> Unit,
+    onAnswer: (dev.jwise.rhubarb.agent.MenuPrompt, dev.jwise.rhubarb.agent.MenuOption) -> Unit,
+) {
+    val top = l?.top; val prog = programOf(l)
+    val container = when (group) {
+        "Needs you" -> MaterialTheme.colorScheme.tertiaryContainer
+        "Failed" -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = container),
+        shape = MaterialTheme.shapes.extraLarge,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        onClick = onOpen,
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ProgramAvatar(prog, top)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("${prog.name} · ${statusLabel(top) ?: group}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(listOfNotNull("${p.session} › ${p.window}", ago(top?.updatedAt)).joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            val msg = top?.msg?.ifBlank { null } ?: top?.title?.ifBlank { null }
+            if (prompt == null) msg?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = if (group == "Working") 2 else 4, overflow = TextOverflow.Ellipsis) }
+            l?.progress?.let { pct ->
+                if (pct < 0) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                else androidx.compose.material3.LinearProgressIndicator(progress = { pct / 100f }, modifier = Modifier.fillMaxWidth())
+            }
+            if (prompt != null && prompt.answers.isNotEmpty()) {
+                prompt.context.lastOrNull()?.takeIf { prompt.permission }?.let {
+                    Text(it, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                Text(prompt.question ?: "Claude Code is asking", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                prompt.answers.forEach { o ->
+                    androidx.compose.material3.OutlinedButton(onClick = { onAnswer(prompt, o) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Text("${o.number}. ${o.label}", maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+            if (group == "Finished" || group == "Failed") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                androidx.compose.material3.TextButton(onClick = onClear) { Text("Clear") }
+                androidx.compose.material3.TextButton(onClick = onOpen) { Text("Open") }
+            }
+        }
+    }
+}
+

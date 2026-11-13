@@ -1,0 +1,31 @@
+# cursor_row=22 cursor_col=16 cols=46 rows=30
+
+  (login banner removed from this fixture)
+
+
+
+
+
+
+
+
+
+ …/scratchpad/prompts-live/probe1
+❯ command claude --model claude-haiku-5-5
+                                       bat 100
+% 01:28
+
+Resume this session with:
+claude --resume a881e9b5-70a5-46af-b52a-d44be5
+29fced
+
+…/prompts-live/probe1 9m17s
+❯ read "a?Continue? [y/N] "; echo "got:$a"
+Continue? [y/N]
+
+
+
+
+
+
+

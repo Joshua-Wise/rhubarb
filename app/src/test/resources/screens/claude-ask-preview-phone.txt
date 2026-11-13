@@ -1,0 +1,31 @@
+# cursor_row=29 cursor_col=0 cols=46 rows=30
+⏺ I'll read the pv.json file and call
+  AskUserQuestion with its contents.
+
+  Read 1 file
+
+⏺ Now I'll call AskUserQuestion with this
+  JSON:
+
+──────────────────────────────────────────────
+ ☐ Layout
+
+Which layout should the settings page use?
+
+❯ 1. Sidebar              ┌──────────┐
+  2. Tabs                 │ +------- │
+  3. One long page        │ -+------ │
+                          │ -----+   │
+                          │ | Agents │
+                          ├─── ✂ ─── 12 lines
+                          hidden ┤
+                          └──────────┘
+
+                          Notes: press n to
+                                 add notes
+
+──────────────────────────────────────────────
+  Chat about this
+
+Enter to select · ↑/↓ to navigate · n to add
+notes · Esc to cancel

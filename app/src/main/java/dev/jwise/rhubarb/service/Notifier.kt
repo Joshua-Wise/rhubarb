@@ -19,6 +19,10 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.ConcurrentHashMap
+import dev.jwise.rhubarb.agent.MenuOption
+import dev.jwise.rhubarb.agent.MenuPrompt
+import dev.jwise.rhubarb.agent.PromptAnswers
+import kotlinx.coroutines.launch
 
 /**
  * Turns Rex terminal events into Android notifications:
@@ -37,6 +41,10 @@ class Notifier(private val ctx: Context) {
         const val KEY_REPLY = "reply"
         const val EXTRA_KEYS = "keys"
         const val ACTION_REPLY = "dev.jwise.rhubarb.REPLY"
+        const val ACTION_ANSWER = "dev.jwise.rhubarb.ANSWER"
+        const val EXTRA_NUMBER = "number"
+        const val EXTRA_QUESTION = "question"
+        const val EXTRA_LABELS = "labels"
     }
 
     private val lastState = ConcurrentHashMap<String, String>()
@@ -79,15 +87,29 @@ class Notifier(private val ctx: Context) {
         return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, "Reply", pi).addRemoteInput(ri).build()
     }
 
-    /** A one-tap action that types [keys] into the pane as-is (no Enter added). */
-    private fun keysAction(sessionId: String, blockId: String, label: String, keys: String): NotificationCompat.Action {
+    /** A button that answers a menu option, checked against the screen again before it's pressed. */
+    private fun answerAction(sessionId: String, blockId: String, p: MenuPrompt, o: MenuOption): NotificationCompat.Action {
         val i = Intent(ctx, ReplyReceiver::class.java).apply {
-            action = ACTION_REPLY
-            putExtra(EXTRA_SESSION, sessionId); putExtra(EXTRA_BLOCK, blockId); putExtra(EXTRA_KEYS, keys)
-            data = android.net.Uri.parse("rex://keys/$label/$blockId")
+            action = ACTION_ANSWER
+            putExtra(EXTRA_SESSION, sessionId); putExtra(EXTRA_BLOCK, blockId)
+            putExtra(EXTRA_NUMBER, o.number); putExtra(EXTRA_QUESTION, p.question)
+            putStringArrayListExtra(EXTRA_LABELS, ArrayList(p.options.map { it.label }))
+            data = android.net.Uri.parse("rex://answer/${o.number}/$blockId")
         }
-        val pi = PendingIntent.getBroadcast(ctx, (blockId + label).hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val pi = PendingIntent.getBroadcast(ctx, (blockId + "#" + o.number).hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val label = o.label.let { if (it.length > 28) it.take(27) + "…" else it }
         return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, label, pi).build()
+    }
+
+    /** Update the "needs you" notification after a button was tapped, e.g. when the menu had changed. */
+    fun answerOutcome(sessionId: String, blockId: String, text: String) {
+        post(notifId(blockId, 1), NotificationCompat.Builder(ctx, CH_ATTENTION)
+            .setSmallIcon(R.drawable.ic_stat_rhubarb)
+            .setContentTitle(RexApp.instance.hub.value?.describe(blockId) ?: "Rex")
+            .setContentText(text)
+            .setContentIntent(openIntent(sessionId, blockId))
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true))
     }
 
     private fun post(id: Int, b: NotificationCompat.Builder) {
@@ -132,16 +154,32 @@ class Notifier(private val ctx: Context) {
                             .setPriority(NotificationCompat.PRIORITY_HIGH)
                             .setContentIntent(openIntent(sessionId, blockId))
                             .setAutoCancel(true)
-                        // Claude Code's permission menu: "1" picks "Yes"; Esc declines (the
-                        // option numbers for "No" vary, Esc always means no).
-                        val claudePermission = rec["kind"]?.jsonPrimitive?.contentOrNull == "permission" &&
-                            who.contains("claude", ignoreCase = true)
-                        if (claudePermission) {
-                            b.addAction(keysAction(sessionId, blockId, "Allow", "1"))
-                            b.addAction(keysAction(sessionId, blockId, "Deny", "\u001b"))
-                        }
                         b.addAction(replyAction(sessionId, blockId))
                         post(notifId(blockId, 1), b)
+                        // Claude Code: read its menu off the screen and offer the options as buttons.
+                        if (who.contains("claude", ignoreCase = true) && app.settings.answerButtons.value.value) {
+                            app.scope.launch {
+                                val p = PromptAnswers.awaitPrompt(hub, sessionId, blockId) ?: return@launch
+                                if (lastState[key] != "blocked") return@launch
+                                val answers = p.answers.take(3)
+                                if (answers.isEmpty()) return@launch
+                                val body = (p.context + listOfNotNull(p.question)).joinToString("\n").ifBlank { msg.ifBlank { where } }
+                                val nb = NotificationCompat.Builder(ctx, CH_ATTENTION)
+                                    .setSmallIcon(R.drawable.ic_stat_rhubarb)
+                                    .setContentTitle("${pretty(who)} $what")
+                                    .setContentText(p.question ?: msg.ifBlank { where })
+                                    .setSubText(where)
+                                    .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                                    .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                    .setContentIntent(openIntent(sessionId, blockId))
+                                    .setOnlyAlertOnce(true)
+                                    .setAutoCancel(true)
+                                answers.forEach { nb.addAction(answerAction(sessionId, blockId, p, it)) }
+                                if (answers.size < 3) nb.addAction(replyAction(sessionId, blockId))
+                                post(notifId(blockId, 1), nb)
+                            }
+                        }
                     }
                     else -> {
                         if (prev == "blocked") cancel(blockId)

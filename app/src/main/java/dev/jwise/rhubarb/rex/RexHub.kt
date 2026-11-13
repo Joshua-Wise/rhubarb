@@ -512,6 +512,28 @@ class RexHub(
         )
     }
 
+    /**
+     * The last [rows] lines of a pane's screen as plain text, read without the whole history:
+     * a one-byte format call gives the total length, then blob_read fetches only the end.
+     */
+    suspend fun screenTail(sid: String, blockId: String, rows: Int? = null): List<String> {
+        val n = rows ?: control.blockCall(sid, blockId, "$TERMINAL.size")?.jsonObject?.get("rows")?.jsonPrimitive?.intOrNull ?: 50
+        val first = control.blockCall(sid, blockId, "$TERMINAL.format", buildJsonObject {
+            put("format", "text"); put("trim", true); put("max_bytes", 1)
+        })!!.jsonObject
+        val id = first["id"]?.jsonPrimitive?.longOrNull
+        val total = first["total"]?.jsonPrimitive?.longOrNull ?: 0L
+        val want = (n * 400L).coerceIn(4096, 64 * 1024)
+        val offset = if (id == null) 0L else (total - want).coerceAtLeast(0)
+        val text = if (id == null) first["content"]?.jsonPrimitive?.contentOrNull.orEmpty() else
+            control.blockCall(sid, blockId, "$TERMINAL.blob_read", buildJsonObject {
+                put("id", id); put("offset", offset); put("max_bytes", want + 1024)
+            })?.jsonObject?.get("data")?.jsonPrimitive?.contentOrNull.orEmpty()
+        val lines = text.split('\n')
+        // A tail that starts mid-history begins with a partial line; drop it.
+        return (if (offset > 0) lines.drop(1) else lines).dropLastWhile { it.isBlank() }.takeLast(n)
+    }
+
     // ---- input ----
     suspend fun write(sessionId: String, blockId: String, data: String) {
         control.blockCall(sessionId, blockId, "$TERMINAL.write", buildJsonObject { put("data", data) })

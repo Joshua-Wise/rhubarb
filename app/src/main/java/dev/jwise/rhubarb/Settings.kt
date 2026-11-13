@@ -95,9 +95,23 @@ class Settings(private val ctx: Context) {
     /** Home's "Needs you" board: agents grouped by what they need, above the session list. */
     val board = Flag("board", true)
 
+    private val _seen = flow(decodeSeen(p.getString("seen", null)))
+    /** For each pane, the status update the user has seen (opened the pane or cleared its card). */
+    val seen: StateFlow<Map<String, String>> = _seen
+    fun markSeen(blockId: String, stamp: String?) {
+        if (stamp == null || _seen.value[blockId] == stamp) return
+        val m = (_seen.value - blockId) + (blockId to stamp)
+        val trimmed = if (m.size > 300) m.entries.drop(m.size - 300).associate { it.key to it.value } else m
+        p.edit().putString("seen", org.json.JSONObject(trimmed).toString()).apply(); _seen.value = trimmed
+    }
+
     companion object {
         /** Compare servers by host name, ignoring scheme and trailing slashes. */
         fun hostKey(url: String) = url.trim().lowercase().substringAfter("://").substringBefore('/').trimEnd('/')
+        private fun decodeSeen(s: String?): Map<String, String> = try {
+            val o = org.json.JSONObject(s ?: "{}")
+            o.keys().asSequence().associateWith { o.getString(it) }
+        } catch (e: Exception) { emptyMap() }
         private fun encodeHosts(l: List<Pair<String, String>>) =
             org.json.JSONArray(l.map { org.json.JSONObject().put("label", it.first).put("url", it.second) }).toString()
         private fun decodeHosts(s: String?): List<Pair<String, String>> = try {
