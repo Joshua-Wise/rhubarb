@@ -85,12 +85,13 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 supporting = { Text(hostLabel ?: app.defaultHostLabel()) })
             GroupItem(1, 3, onClick = onChangeServer,
                 leading = { Icon(Sym.Link, null) },
-                headline = { Text("Server address") },
-                supporting = { Text(app.serverUrl ?: "Not set") })
+                headline = { Text("Server") },
+                supporting = { Text(app.serverUrl?.let(::displayAddress) ?: "Not set", maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) })
             GroupItem(2, 3, onClick = { editing = "device" },
                 leading = { Icon(Sym.Badge, null) },
-                headline = { Text("This device's name") },
-                supporting = { Text("$deviceLabel · how this phone appears in Rex's client list") })
+                headline = { Text("Device name") },
+                supporting = { Text(deviceLabel) })
 
             SectionHeader("Hosts")
             val hosts = rememberKnownHosts()
@@ -102,58 +103,41 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     // Hold a saved host (not the one in use) to forget it.
                     onLongClick = if (saved && !current) ({ forgetting = label to url }) else null,
                     leading = {
-                        if (current) Icon(Sym.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary)
+                        if (current) Icon(Sym.CheckCircleFilled, "Connected", tint = MaterialTheme.colorScheme.primary)
                         else Icon(Sym.Dns, null)
                     },
                     headline = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                     supporting = {
-                        Text(if (current) "Connected · ${displayAddress(url)}" else displayAddress(url),
-                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(displayAddress(url), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     })
             }
             if (hosts.any { (_, u) -> !isCurrentHost(u) }) {
-                Text("Hold a saved host to forget it.", style = MaterialTheme.typography.bodySmall,
+                Text("Hold a host to forget it", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 32.dp, top = 6.dp))
-            }
-
-            SectionHeader("Server")
-            val info = serverInfo
-            if (info == null) {
-                GroupItem(0, 1, leading = { Icon(Sym.Info, null) }, headline = { Text("Loading…") })
-            } else if (info.isEmpty()) {
-                GroupItem(0, 1, leading = { Icon(Sym.Info, null) }, headline = { Text("Not connected") })
-            } else {
-                val rows = info.entries.toList()
-                rows.forEachIndexed { i, (k, v) ->
-                    GroupItem(i, rows.size,
-                        headline = { Text(k) },
-                        supporting = { Text(v, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) })
-                }
             }
 
             SectionHeader("Notifications")
             GroupItem(0, 4,
                 leading = { Icon(Sym.NotificationsActive, null) },
-                headline = { Text("Watch in background") },
-                supporting = { Text("Keep a connection open so agents that need you can alert this phone") },
+                headline = { Text("Background") },
+                supporting = { Text("Stay connected for alerts") },
                 trailing = {
                     Switch(watch, onCheckedChange = {
                         watch = it; app.watchEnabled = it
                         if (it) WatchService.start(ctx) else WatchService.stop(ctx)
                     })
                 })
-            GroupItem(1, 4,
-                leading = { Icon(Sym.DoneAll, null) },
-                headline = { Text("When work finishes") },
-                supporting = { Text("Notify when a program goes from working to done") },
-                trailing = { Switch(notifyDone, onCheckedChange = { notifyDone = it; app.notifyDone = it }) })
+            FlagItem(1, 4, st.liveProgress, Sym.Timelapse, "Live progress", "While an agent works")
             GroupItem(2, 4,
+                leading = { Icon(Sym.DoneAll, null) },
+                headline = { Text("Finished") },
+                supporting = { Text("When an agent is done") },
+                trailing = { Switch(notifyDone, onCheckedChange = { notifyDone = it; app.notifyDone = it }) })
+            GroupItem(3, 4,
                 leading = { Icon(Sym.Sms, null) },
-                headline = { Text("Program notifications") },
-                supporting = { Text("Show notifications that terminal programs send") },
+                headline = { Text("Program alerts") },
+                supporting = { Text("Sent by terminal programs") },
                 trailing = { Switch(notifyPrograms, onCheckedChange = { st.setNotifyPrograms(it) }) })
-            FlagItem(3, 4, st.liveProgress, Sym.Timelapse, "Live progress",
-                "While an agent works, show a silent notification with its progress. On Android 16 it also shows in the status bar.")
 
             SectionHeader("Appearance")
             val dynCount = if (Build.VERSION.SDK_INT >= 31) 3 else 2
@@ -174,71 +158,70 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 GroupItem(1, dynCount,
                     leading = { Icon(Sym.Palette, null) },
                     headline = { Text("Dynamic color") },
-                    supporting = { Text("Use colors from your wallpaper") },
+                    supporting = { Text("Match your wallpaper") },
                     trailing = { Switch(dynamic, onCheckedChange = { st.setDynamicColor(it) }) })
             }
             GroupItem(dynCount - 1, dynCount,
                 leading = { Icon(Sym.Terminal, null) },
                 headline = { Text("Terminal colors") },
                 supporting = {
-                    Column {
-                        Text(if (termColors == TerminalColors.App) "Light or dark to match this app" else "The colors the Mac's terminal uses")
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            listOf(TerminalColors.App to "Match app", TerminalColors.Mac to "Mac's").forEachIndexed { i, (v, label) ->
-                                SegmentedButton(
-                                    selected = termColors == v, onClick = { st.setTerminalColors(v) },
-                                    shape = SegmentedButtonDefaults.itemShape(i, 2),
-                                ) { Text(label) }
-                            }
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        listOf(TerminalColors.App to "App", TerminalColors.Mac to "Mac").forEachIndexed { i, (v, label) ->
+                            SegmentedButton(
+                                selected = termColors == v, onClick = { st.setTerminalColors(v) },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2),
+                            ) { Text(label) }
                         }
                     }
                 })
+
+            SectionHeader("Agents")
+            FlagItem(0, 2, st.answerButtons, Sym.TouchApp, "Answer buttons", "Tap to answer prompts")
+            FlagItem(1, 2, st.claudeBar, Sym.Tune, "Claude controls", "Mode, effort and commands")
 
             SectionHeader("Terminal")
             val renderer by st.renderer.collectAsState()
             val fitToPhone by st.fitToPhone.collectAsState()
-            GroupItem(0, 5,
-                leading = { Icon(Sym.Terminal, null) },
+            FlagItem(0, 5, st.messageBox, Sym.Edit, "Message box", "Type with autocorrect")
+            GroupItem(1, 5,
+                leading = { Icon(Sym.PhoneAndroid, null) },
+                headline = { Text("Fit to phone") },
+                supporting = { Text("Resize panes while open") },
+                trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
+            FlagItem(2, 5, st.programClipboard, Sym.ContentCopy, "Clipboard", "Let programs copy to this phone")
+            FlagItem(3, 5, st.bellVibrate, Sym.Vibration, "Bell", "Vibrate")
+            GroupItem(4, 5,
+                leading = { Icon(Sym.Code, null) },
                 headline = { Text("Renderer") },
                 supporting = {
-                    Column {
-                        Text(if (renderer == dev.jwise.rhubarb.Renderer.Ghostty) "Ghostty, the same terminal engine as Rex's own apps (beta)" else "xterm.js in a web view")
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            listOf(dev.jwise.rhubarb.Renderer.Ghostty to "Ghostty", dev.jwise.rhubarb.Renderer.Xterm to "xterm.js").forEachIndexed { i, (v, label) ->
-                                SegmentedButton(selected = renderer == v, onClick = { st.setRenderer(v) },
-                                    shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
-                            }
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        listOf(dev.jwise.rhubarb.Renderer.Ghostty to "Ghostty", dev.jwise.rhubarb.Renderer.Xterm to "xterm.js").forEachIndexed { i, (v, label) ->
+                            SegmentedButton(selected = renderer == v, onClick = { st.setRenderer(v) },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
                         }
                     }
                 })
-            GroupItem(1, 5,
-                leading = { Icon(Sym.PhoneAndroid, null) },
-                headline = { Text("Fit panes to phone") },
-                supporting = { Text("Resize a pane to this screen while you have it open. The Mac shows it at the phone's size until you leave.") },
-                trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
-            FlagItem(2, 5, st.messageBox, Sym.Edit, "Message box",
-                "Write in a text box with autocorrect and dictation, then send. Off: type straight into the terminal.")
-            FlagItem(3, 5, st.programClipboard, Sym.ContentCopy, "Programs can copy",
-                "When a program in the open pane copies text (Neovim, tmux), put it on this phone's clipboard")
-            FlagItem(4, 5, st.bellVibrate, Sym.Vibration, "Vibrate on bell",
-                "A short buzz when a program in the open pane rings the bell")
 
-            SectionHeader("Coding agents")
-            FlagItem(0, 2, st.answerButtons, Sym.TouchApp, "Answer buttons",
-                "Show Claude Code's permission and question choices as buttons in the pane and in notifications")
-            FlagItem(1, 2, st.claudeBar, Sym.Tune, "Claude Code controls",
-                "A strip above the keys in panes running Claude Code: permission mode, effort and slash commands")
+            SectionHeader("Server")
+            val info = serverInfo
+            if (info == null) {
+                GroupItem(0, 1, leading = { Icon(Sym.Info, null) }, headline = { Text("Loading…") })
+            } else if (info.isEmpty()) {
+                GroupItem(0, 1, leading = { Icon(Sym.Info, null) }, headline = { Text("Not connected") })
+            } else {
+                val rows = info.entries.toList()
+                rows.forEachIndexed { i, (k, v) ->
+                    GroupItem(i, rows.size,
+                        headline = { Text(k) },
+                        supporting = { Text(v, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) })
+                }
+            }
 
             SectionHeader("About")
             GroupItem(0, 1,
                 leading = { Icon(Sym.Info, null) },
                 headline = { Text("Rhubarb ${BuildConfig.VERSION_NAME}") },
-                supporting = {
-                    Text(
-                        "An unofficial Android client for Rex by Superlogical, built on the API every Rex server " +
-                            "documents at /llms.txt. Terminal rendering by Ghostty (MIT) via chuchu (MIT), or xterm.js (MIT).",
-                    )
-                })
+                supporting = { Text("Unofficial Android client for Rex") })
         }
     }
 
@@ -246,7 +229,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
         AlertDialog(
             onDismissRequest = { forgetting = null },
             title = { Text("Forget $label?") },
-            text = { Text("It's removed from this phone's host list. You can add it again any time.") },
+            text = { Text("You can add it again later.") },
             confirmButton = { TextButton(onClick = { st.forgetHost(url); forgetting = null }) { Text("Forget") } },
             dismissButton = { TextButton(onClick = { forgetting = null }) { Text("Cancel") } },
         )
@@ -257,11 +240,11 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
         var text by remember(which) { mutableStateOf(if (isHost) hostLabel ?: app.defaultHostLabel() else deviceLabel) }
         AlertDialog(
             onDismissRequest = { editing = null },
-            title = { Text(if (isHost) "Host name" else "This device's name") },
+            title = { Text(if (isHost) "Host name" else "Device name") },
             text = {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it.take(40) }, singleLine = true,
-                    supportingText = { Text(if (isHost) "Shown at the top of the home screen" else "Other Rex clients see this name") },
+                    supportingText = { Text(if (isHost) "Shown on Home" else "Shown to other Rex clients") },
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
