@@ -454,7 +454,13 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         onBack()
     }
 
-    LaunchedEffect(canvasGrid?.toList(), autoFit) {
+    // The chat hides the terminal, so while it shows the pane goes back to the Mac's size; switching
+    // back to the terminal fits it to the phone again (if Fit to phone is on).
+    LaunchedEffect(canvasGrid?.toList(), autoFit, showChat) {
+        if (showChat) {
+            if (owned) { owned = false; release(h, sessionId, blockId) }
+            return@LaunchedEffect
+        }
         if (!autoFit) return@LaunchedEffect
         delay(300)
         repeat(10) {

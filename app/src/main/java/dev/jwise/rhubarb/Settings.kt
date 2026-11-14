@@ -107,7 +107,7 @@ class Settings(private val ctx: Context) {
     /** Claude Code's permission and question menus as buttons, in the pane and in notifications. */
     val answerButtons = Flag("answer_buttons", true)
     /** Claude Code panes open as a conversation (read from the session's transcript) instead of the terminal. */
-    val chatView = Flag("chat_view", true)
+    val chatView = Flag("chat_view", false)
     /** The strip of Claude Code controls (mode, effort, slash commands) above the key bar. */
     val claudeBar = Flag("claude_bar", true)
     /** Panes open with the message box (autocorrect, dictation) instead of typing into the terminal. */
