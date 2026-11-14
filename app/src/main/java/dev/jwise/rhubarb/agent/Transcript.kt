@@ -167,7 +167,10 @@ class ChatModel {
  * tool calls and capped tool output. It waits for a go-ahead before sending so nothing is printed
  * before the stream is connected, ends itself after two hours, and is closed when the pane closes.
  */
-class TranscriptFollower(private val h: RexHub, private val sessionId: String, private val scope: CoroutineScope, installId: String) {
+class TranscriptFollower(
+    private val h: RexHub, private val sessionId: String, private val scope: CoroutineScope, installId: String,
+    private val source: TranscriptSource = TranscriptSources.claude,
+) {
     /** This install's helpers carry this label, so leftovers (the app was killed) can be found and closed. */
     private val label = "rhubarb-chat:$installId"
     private val _items = MutableStateFlow<List<ChatItem>>(emptyList())
@@ -206,8 +209,8 @@ class TranscriptFollower(private val h: RexHub, private val sessionId: String, p
                             add(kotlinx.serialization.json.JsonPrimitive("/usr/bin/perl"))
                             add(kotlinx.serialization.json.JsonPrimitive("-e")); add(kotlinx.serialization.json.JsonPrimitive("alarm 7200; exec @ARGV"))
                             add(kotlinx.serialization.json.JsonPrimitive("/bin/sh")); add(kotlinx.serialization.json.JsonPrimitive("-c"))
-                            add(kotlinx.serialization.json.JsonPrimitive(SH)); add(kotlinx.serialization.json.JsonPrimitive("sh"))
-                            add(kotlinx.serialization.json.JsonPrimitive(PERL))
+                            add(kotlinx.serialization.json.JsonPrimitive(source.sh)); add(kotlinx.serialization.json.JsonPrimitive("sh"))
+                            add(kotlinx.serialization.json.JsonPrimitive(source.perl))
                         })
                     })
                 })!!.jsonObject
@@ -238,7 +241,7 @@ class TranscriptFollower(private val h: RexHub, private val sessionId: String, p
                                     val json = line.substring(brace)
                                     val o = runCatching { Json.parseToJsonElement(json).jsonObject }.getOrNull() ?: continue
                                     if (o["t"]?.jsonPrimitive?.contentOrNull == "rhubarb") {
-                                        _status.value = if (o["none"] != null) "No Claude Code conversation found for this folder." else null
+                                        _status.value = if (o["none"] != null) "No ${source.program} conversation found for this folder." else null
                                     } else { runCatching { model.feed(o) }; dirty = true; _status.value = null }
                                 }
                             }
@@ -304,3 +307,71 @@ while (my ${'$'}l = <STDIN>) {
 }"""
     }
 }
+
+/**
+ * Where an agent keeps its sessions and how to read them: [sh] finds the session for the pane's
+ * folder and follows it (after the go-ahead), piping it through [perl], which turns the agent's own
+ * records into the shared compact format [ChatModel] reads:
+ * {"t":"user","s":text} · {"t":"assistant","p":[{"t":"text","x":…}|{"t":"tool","id","n","i"}]} ·
+ * {"t":"user","p":[{"t":"result","id","x","e"}]}.
+ */
+class TranscriptSource(val program: String, val sh: String, val perl: String)
+
+object TranscriptSources {
+    /** Claude Code: ~/.claude/projects/<folder>/<session>.jsonl, Anthropic message records. */
+    val claude = TranscriptSource("Claude Code", TranscriptFollower.SH, TranscriptFollower.PERL)
+
+    /**
+     * Codex: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl, whose first line names the session's
+     * folder. Its item_completed events carry what a person sees: user and agent messages, commands
+     * with their output, file changes, tool calls and web searches.
+     */
+    val codex = TranscriptSource("Codex", CODEX_SH, CODEX_PERL)
+
+    private val all = listOf(claude, codex)
+    fun forProgram(name: String): TranscriptSource? = all.firstOrNull { it.program == name }
+}
+
+internal const val CODEX_SH = """c=${'$'}(pwd)
+stty -echo 2>/dev/null; read go
+f=""
+for x in ${'$'}(ls -t ${'$'}(find "${'$'}HOME/.codex/sessions" -name 'rollout-*.jsonl' -mtime -30 2>/dev/null) 2>/dev/null | head -n 60); do
+  if head -n 1 "${'$'}x" | grep -qF "\"cwd\":\"${'$'}c\""; then f="${'$'}x"; break; fi
+done
+if [ -z "${'$'}f" ]; then echo '{"t":"rhubarb","none":1}'; exit 0; fi
+echo '{"t":"rhubarb","ok":1}'
+tail -n 20000 -F "${'$'}f" 2>/dev/null | perl -MJSON::PP -e "${'$'}1""""
+
+internal const val CODEX_PERL = """
+${'$'}| = 1; my ${'$'}j = JSON::PP->new->utf8; my ${'$'}ji = JSON::PP->new;
+sub cut { my (${'$'}s, ${'$'}n) = @_; return '' unless defined ${'$'}s; ${'$'}s =~ s/\s+${'$'}//; length(${'$'}s) > ${'$'}n ? substr(${'$'}s, 0, ${'$'}n) . "\x{2026}" : ${'$'}s }
+sub texts { my (${'$'}c) = @_; return '' unless ref ${'$'}c eq 'ARRAY'; join("\n", map { ${'$'}_->{text} // '' } grep { ref ${'$'}_ eq 'HASH' } @${'$'}c) }
+sub tool {
+  my (${'$'}id, ${'$'}n, ${'$'}in, ${'$'}out, ${'$'}err) = @_;
+  print ${'$'}j->encode({ t => 'assistant', u => ${'$'}id, p => [{ t => 'tool', id => ${'$'}id, n => ${'$'}n, i => cut(${'$'}ji->encode(${'$'}in), 1500) }] }), "\n";
+  ${'$'}out = ${'$'}ji->encode(${'$'}out) if ref ${'$'}out;
+  print ${'$'}j->encode({ t => 'user', u => "${'$'}id.r", p => [{ t => 'result', id => ${'$'}id, x => cut(${'$'}out // '', 2000), e => (${'$'}err ? 1 : 0) }] }), "\n";
+}
+while (my ${'$'}l = <STDIN>) {
+  next unless ${'$'}l =~ /"item_completed"/;
+  my ${'$'}o = eval { ${'$'}j->decode(${'$'}l) } or next;
+  my ${'$'}it = (${'$'}o->{payload} || {})->{item} or next;
+  my ${'$'}t = lc(${'$'}it->{type} // ''); my ${'$'}id = ${'$'}it->{id} // '';
+  if (${'$'}t eq 'usermessage') { my ${'$'}x = texts(${'$'}it->{content}); print ${'$'}j->encode({ t => 'user', u => ${'$'}id, s => cut(${'$'}x, 8000) }), "\n" if length ${'$'}x }
+  elsif (${'$'}t eq 'agentmessage') { my ${'$'}x = texts(${'$'}it->{content}); print ${'$'}j->encode({ t => 'assistant', u => ${'$'}id, p => [{ t => 'text', x => cut(${'$'}x, 8000) }] }), "\n" if length ${'$'}x }
+  elsif (${'$'}t eq 'commandexecution') {
+    my ${'$'}c = ${'$'}it->{command};
+    ${'$'}c = ref ${'$'}c eq 'ARRAY' ? ((@${'$'}c >= 3 && ${'$'}c->[1] =~ /^-l?c${'$'}/) ? ${'$'}c->[2] : join(' ', @${'$'}c)) : (${'$'}c // '');
+    tool(${'$'}id, 'Bash', { command => ${'$'}c }, ${'$'}it->{aggregated_output}, ((${'$'}it->{exit_code} // 0) != 0 || (${'$'}it->{status} // '') eq 'failed'));
+  }
+  elsif (${'$'}t eq 'filechange') {
+    my @c = @{ ${'$'}it->{changes} || [] };
+    my @lines = map { my ${'$'}k = ${'$'}_->{kind}; ${'$'}k = ${'$'}k->{type} if ref ${'$'}k eq 'HASH'; (${'$'}k // 'edit') . ' ' . (${'$'}_->{path} // '') } @c;
+    tool(${'$'}id, @c > 1 ? 'MultiEdit' : 'Edit', { file_path => (@c ? (${'$'}c[0]{path} // '') : '') }, join("\n", @lines), (${'$'}it->{status} // '') eq 'failed');
+  }
+  elsif (${'$'}t eq 'mcptoolcall') {
+    tool(${'$'}id, 'mcp__' . (${'$'}it->{server} // 'mcp') . '__' . (${'$'}it->{tool} // 'tool'), ref ${'$'}it->{arguments} eq 'HASH' ? ${'$'}it->{arguments} : {}, ${'$'}it->{result} // ${'$'}it->{error}, defined ${'$'}it->{error});
+  }
+  elsif (${'$'}t eq 'websearch') { tool(${'$'}id, 'WebSearch', { query => ${'$'}it->{query} // '' }, '', 0) }
+}"""
+

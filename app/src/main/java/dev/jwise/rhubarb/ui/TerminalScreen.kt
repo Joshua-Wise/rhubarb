@@ -297,8 +297,11 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     // hidden helper on the Mac. The top bar switches between it and the terminal.
     val chatPref by app.settings.chatView.value.collectAsState()
     var chatChoice by remember { mutableStateOf<Boolean?>(null) }
-    val showChat = isClaude && (chatChoice ?: chatPref)
-    val follower = remember(isClaude) { if (isClaude) dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId) else null }
+    val chatSource = dev.jwise.rhubarb.agent.TranscriptSources.forProgram(prog.name)
+    val showChat = chatSource != null && (chatChoice ?: chatPref)
+    val follower = remember(chatSource) {
+        chatSource?.let { dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId, it) }
+    }
     DisposableEffect(follower) { onDispose { follower?.stop() } }
     LaunchedEffect(follower, showChat) {
         if (follower == null || !showChat) return@LaunchedEffect
@@ -501,7 +504,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    if (isClaude) IconButton(onClick = { chatChoice = !showChat }) {
+                    if (chatSource != null) IconButton(onClick = { chatChoice = !showChat }) {
                         if (showChat) Icon(Sym.Terminal, "Show the terminal") else Icon(Sym.Chat, "Show the conversation")
                     }
                     var paneMenu by remember { mutableStateOf(false) }

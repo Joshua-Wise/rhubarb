@@ -192,7 +192,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 })
 
             SectionHeader("Agents")
-            FlagItem(0, 3, st.chatView, Sym.Chat, "Chat view", "Show Claude Code as a conversation")
+            FlagItem(0, 3, st.chatView, Sym.Chat, "Chat view", "Show Claude Code and Codex as a conversation")
             FlagItem(1, 3, st.answerButtons, Sym.TouchApp, "Answer buttons", "Tap to answer prompts")
             FlagItem(2, 3, st.claudeBar, Sym.Tune, "Agent controls", "Mode, model and commands")
 
