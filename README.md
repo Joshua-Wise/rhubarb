@@ -9,9 +9,9 @@ unofficial client built on the API that every Rex server documents about itself 
 > Code by Anthropic). I directed, reviewed and tested each change on real devices against a real
 > Rex server; the AI wrote much of the code under that direction.
 
-| Sessions | Terminal | New session | Alerts |
+| Home | Claude Code | Codex | New session |
 | :---: | :---: | :---: | :---: |
-| <img src="store/screenshots/1-home.png" alt="Home screen: sessions and tabs, each with the coding agent running in it" width="200"> | <img src="store/screenshots/2-terminal.png" alt="A pane running Claude Code, drawn by Ghostty, with the phone key bar" width="200"> | <img src="store/screenshots/3-new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> | <img src="store/screenshots/4-notification.png" alt="A notification that Claude Code finished" width="200"> |
+| <img src="store/screenshots/1-home.png" alt="Home: the Needs you board with Claude Code's permission prompt as buttons, finished and working agents, and the bottom bar" width="200"> | <img src="store/screenshots/2-terminal.png" alt="A Claude Code pane: its permission prompt as answer buttons, the controls strip, key bar and message box" width="200"> | <img src="store/screenshots/3-codex.png" alt="A Codex pane with its own controls strip: mode, model and commands" width="200"> | <img src="store/screenshots/4-new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> |
 
 ## Get it
 
@@ -47,9 +47,9 @@ GitHub builds are signed differently and can't update each other, so stick with 
   CLI and Gemini CLI get their own strips: their mode (Shift+Tab), model picker and commands.
 - **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
   working) with how long ago each changed. Finished work stays until you open it or clear it
-  (or swipe it away). Turn it off in Settings.
+  (or swipe it away). The eye in Home's bottom bar shows or hides it.
 - **Live progress**: while an agent works, a silent notification shows its progress and a timer;
-  on Android 16 it's also a chip in the status bar. Needs Watch in background when Rhubarb is closed.
+  on Android 16 it's also a chip in the status bar. Needs Settings → Notifications → Background when Rhubarb is closed.
 - **Message box** in every pane: one wide pill like the Claude app, with autocorrect: + to attach
   a photo or any file, the text, Enter/Send/Stop, and a mic for dictation through Android's own
   speech-to-text. Tapping the terminal puts the cursor there; the key bar's Keyboard chip still
@@ -74,7 +74,7 @@ GitHub builds are signed differently and can't update each other, so stick with 
   with a phone-friendly key bar (Esc, sticky Ctrl/Alt/Shift, Tab, arrows that repeat, hold
   Ctrl for common chords, hold Enter for a new line that isn't sent), paste, long-press to
   copy, and long-press a link to open, copy or share it. Panes fit the phone while open and get the Mac's size back when you leave
-  (Settings → Terminal → Fit panes to phone turns this off and shows the Mac's grid with zoom).
+  (Settings → Terminal → Fit to phone turns this off and shows the Mac's grid with zoom).
   If the Mac takes a pane while it's open on the phone, the phone lets it go and returns to
   the pane list.
 - **Send images to the Mac**: the image button in a pane (or Paste with an image copied, or an
@@ -144,7 +144,7 @@ adb install -r ~/Library/Caches/rexAndroid/app/outputs/apk/debug/app-debug.apk
 
 1. Install Tailscale on your Android device and sign in with the same account as the Mac.
 2. Open Rhubarb and enter the server address, for example `my-mac-rex.tailnet.ts.net`.
-3. Optional: turn on **Watch in background** to get alerts while the app is closed. This
+3. Optional: turn on **Settings → Notifications → Background** to get alerts while the app is closed. This
    keeps a foreground-service connection open, because Rex has no push channel to phones.
 
 ## Layout

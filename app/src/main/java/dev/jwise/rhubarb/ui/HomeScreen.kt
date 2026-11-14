@@ -641,7 +641,13 @@ private fun BoardCard(
                 }
                 Text(prompt.question ?: "Claude Code is asking", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 prompt.answers.forEach { o ->
-                    androidx.compose.material3.OutlinedButton(onClick = { onAnswer(prompt, o) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                    // The card's own text colour, so the buttons read on any tonal container.
+                    val onCard = androidx.compose.material3.contentColorFor(container)
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onAnswer(prompt, o) }, enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = onCard),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, onCard.copy(alpha = 0.5f)),
+                    ) {
                         Text("${o.number}. ${o.label}", maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                     }
                 }

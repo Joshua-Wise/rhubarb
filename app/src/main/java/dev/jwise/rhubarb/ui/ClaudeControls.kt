@@ -54,8 +54,10 @@ fun AnswerCard(p: MenuPrompt, busy: Boolean, onAnswer: (MenuOption) -> Unit) {
                 val content: @Composable () -> Unit = {
                     Text("${o.number}. ${o.label}", maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                 }
-                if (o.selected) FilledTonalButton(onClick = { onAnswer(o) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { content() }
-                else OutlinedButton(onClick = { onAnswer(o) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { content() }
+                if (o.selected) androidx.compose.material3.Button(onClick = { onAnswer(o) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { content() }
+                else OutlinedButton(onClick = { onAnswer(o) }, enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f))) { content() }
             }
         }
     }

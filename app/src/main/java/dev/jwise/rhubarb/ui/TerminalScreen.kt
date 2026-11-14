@@ -466,7 +466,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                             status,
                             "password prompt".takeIf { passwordPrompt },
                             (conn as? dev.jwise.rhubarb.rex.ConnState.Failed)?.reason,
-                            statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
+                            statusLabel(bl?.top)?.let { "${prog.name.takeIf { prog.agent } ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },
                         ).joinToString(" · ")
                         Row(verticalAlignment = Alignment.CenterVertically) {
