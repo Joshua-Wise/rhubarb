@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
@@ -219,7 +220,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             SectionHeader("Terminal")
             val renderer by st.renderer.collectAsState()
             val fitToPhone by st.fitToPhone.collectAsState()
-            GroupItem(0, 4,
+            GroupItem(0, 5,
                 leading = { Icon(Icons.Default.Terminal, null) },
                 headline = { Text("Renderer") },
                 supporting = {
@@ -233,14 +234,16 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                         }
                     }
                 })
-            GroupItem(1, 4,
+            GroupItem(1, 5,
                 leading = { Icon(Icons.Default.PhoneAndroid, null) },
                 headline = { Text("Fit panes to phone") },
                 supporting = { Text("Resize a pane to this screen while you have it open. The Mac shows it at the phone's size until you leave.") },
                 trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
-            FlagItem(2, 4, st.programClipboard, Icons.Default.ContentCopy, "Programs can copy",
+            FlagItem(2, 5, st.messageBox, Icons.Default.Edit, "Message box",
+                "Write in a text box with autocorrect and dictation, then send. Off: type straight into the terminal.")
+            FlagItem(3, 5, st.programClipboard, Icons.Default.ContentCopy, "Programs can copy",
                 "When a program in the open pane copies text (Neovim, tmux), put it on this phone's clipboard")
-            FlagItem(3, 4, st.bellVibrate, Icons.Default.Vibration, "Vibrate on bell",
+            FlagItem(4, 5, st.bellVibrate, Icons.Default.Vibration, "Vibrate on bell",
                 "A short buzz when a program in the open pane rings the bell")
 
             SectionHeader("Coding agents")

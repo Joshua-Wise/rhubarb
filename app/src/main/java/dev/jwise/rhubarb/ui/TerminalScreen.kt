@@ -73,6 +73,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -140,7 +141,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     var status by remember { mutableStateOf<String?>("connecting…") }
     val mods = remember { KeyMods() }
     var input by remember { mutableStateOf("") }
-    var compose by remember { mutableStateOf(false) }
+    // The message box: open unless turned off in Settings (Settings → Terminal → Message box).
+    var compose by remember { mutableStateOf(app.settings.messageBox.value.value) }
+    val messageFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     // Plain holder (not Compose state): assigning state during composition would loop.
     val jumpToLiveRef = remember { arrayOf<() -> Unit>({}) }
     fun jumpToLive() = jumpToLiveRef[0]()
@@ -309,7 +312,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
 
     // Claude Code panes: read the bottom of the screen after output settles, for the answer card,
     // the controls strip and the message box.
-    val isClaude = programOf(bl).name == "Claude Code"
+    val prog = programOf(bl)
+    val isClaude = prog.name == "Claude Code"
     val answerOn by app.settings.answerButtons.value.collectAsState()
     val stripOn by app.settings.claudeBar.value.collectAsState()
     var claude by remember { mutableStateOf<dev.jwise.rhubarb.agent.ClaudeScreen?>(null) }
@@ -326,8 +330,6 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             delay(450)
         }
     }
-    // The message box is the easiest way to talk to an agent, so it starts open.
-    LaunchedEffect(isClaude) { if (isClaude) compose = true }
     var answering by remember { mutableStateOf(false) }
     fun answer(p: dev.jwise.rhubarb.agent.MenuPrompt, o: dev.jwise.rhubarb.agent.MenuOption) {
         answering = true
@@ -373,7 +375,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 onInput = { s -> send(s) },
                 ready = ready,
                 log = { s -> android.util.Log.i("TermJS", s); if (s.startsWith("js error") || s.startsWith("waiting")) jsLog = s },
-                tap = { post { if (!compose) inputView.showKeyboard() } },
+                tap = { post { if (compose) runCatching { messageFocus.requestFocus() } else inputView.showKeyboard() } },
                 wheel = { n, c, r -> wheel(n, c, r) },
             ), "Android")
             // Only the xterm.js renderer uses the page; with Ghostty it would sit unsized and log.
@@ -543,7 +545,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 if (useGhostty) {
                     GhosttyPane(
                         ghostty = ghostty, zoom = zoom, fitToWidth = !owned, background = palette.bg,
-                        onTap = { if (!compose && !finding) inputView.showKeyboard() },
+                        // With the message box, a tap puts the cursor there; the key bar's Keyboard
+                        // chip still types straight into the terminal (vim, htop, menus).
+                        onTap = { if (finding) Unit else if (compose) runCatching { messageFocus.requestFocus() } else inputView.showKeyboard() },
                         searchMatches = matches,
                         currentMatch = matches.getOrNull(matchIndex),
                         onWheelInput = { bytes -> send(String(bytes, Charsets.UTF_8)) },
@@ -583,7 +587,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             ) else KeyBar(
                 mods, onKey = ::key,
                 compose = compose,
-                onKeyboard = { compose = false; inputView.showKeyboard() },
+                onKeyboard = { inputView.showKeyboard() },
                 onCompose = { compose = !compose; if (!compose) inputView.showKeyboard() },
                 onPaste = {
                     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -602,8 +606,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 val stop = input.isEmpty() && claude?.working == true
                 androidx.compose.material3.TextField(
                     value = input, onValueChange = { input = it },
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
-                    placeholder = { Text(if (isClaude) "Message Claude" else "Message") },
+                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp)
+                        .focusRequester(messageFocus),
+                    placeholder = { Text(when { prog.agent -> "Message ${prog.name}"; else -> "Type a command" }) },
                     textStyle = MaterialTheme.typography.bodyLarge,
                     maxLines = 5,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
@@ -644,7 +649,13 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                             }) { Icon(Icons.Default.Mic, "Dictate") }
                         }
                     },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    // Agents get sentences; shells get commands, which shouldn't start with a capital.
+                    // Autocorrect and suggestions stay on either way.
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Send, autoCorrectEnabled = true,
+                        capitalization = if (prog.agent) androidx.compose.ui.text.input.KeyboardCapitalization.Sentences
+                            else androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                    ),
                     keyboardActions = KeyboardActions(onSend = { sendMessage() }),
                 )
             }

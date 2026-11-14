@@ -92,6 +92,8 @@ class Settings(private val ctx: Context) {
     val answerButtons = Flag("answer_buttons", true)
     /** The strip of Claude Code controls (mode, effort, slash commands) above the key bar. */
     val claudeBar = Flag("claude_bar", true)
+    /** Panes open with the message box (autocorrect, dictation) instead of typing into the terminal. */
+    val messageBox = Flag("message_box", true)
     /** An ongoing notification (and Android 16 status-bar chip) while an agent works. */
     val liveProgress = Flag("live_progress", true)
     /** Home's "Needs you" board: agents grouped by what they need, above the session list. */

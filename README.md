@@ -49,8 +49,10 @@ GitHub builds are signed differently and can't update each other, so stick with 
   (or swipe it away). Turn it off in Settings.
 - **Live progress**: while an agent works, a silent notification shows its progress and a timer;
   on Android 16 it's also a chip in the status bar. Needs Watch in background when Rhubarb is closed.
-- **Message box**: one wide pill like the Claude app: + to attach a photo or any file, the
-  text, Enter/Send/Stop, and a mic for dictation through Android's own speech-to-text.
+- **Message box** in every pane: one wide pill like the Claude app, with autocorrect: + to attach
+  a photo or any file, the text, Enter/Send/Stop, and a mic for dictation through Android's own
+  speech-to-text. Tapping the terminal puts the cursor there; the key bar's Keyboard chip still
+  types straight into the terminal for vim and menus. Settings → Terminal → Message box turns it off.
 - **Feels like Android**: swipe a tab left on Home to close it, predictive back, Material You
   colours, and a pane that runs edge to edge with a "jump to latest" button when you scroll back.
 - **Download files from the Mac**: ⋮ → Download a file browses the pane's machine from its
