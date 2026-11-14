@@ -192,8 +192,9 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 })
 
             SectionHeader("Agents")
-            FlagItem(0, 2, st.answerButtons, Sym.TouchApp, "Answer buttons", "Tap to answer prompts")
-            FlagItem(1, 2, st.claudeBar, Sym.Tune, "Agent controls", "Mode, model and commands")
+            FlagItem(0, 3, st.chatView, Sym.Chat, "Chat view", "Show Claude Code as a conversation")
+            FlagItem(1, 3, st.answerButtons, Sym.TouchApp, "Answer buttons", "Tap to answer prompts")
+            FlagItem(2, 3, st.claudeBar, Sym.Tune, "Agent controls", "Mode, model and commands")
 
             SectionHeader("Terminal")
             val renderer by st.renderer.collectAsState()

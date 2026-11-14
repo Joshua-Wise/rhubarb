@@ -88,6 +88,11 @@ class Settings(private val ctx: Context) {
     val notifyPrograms: StateFlow<Boolean> = _notifyPrograms
     fun setNotifyPrograms(v: Boolean) { p.edit().putBoolean("notify_programs", v).apply(); _notifyPrograms.value = v }
 
+    /** A random ID for this install, to tell this phone's hidden helper panes from other devices'. */
+    val installId: String = p.getString("install_id", null) ?: java.util.UUID.randomUUID().toString().take(8).also {
+        p.edit().putString("install_id", it).apply()
+    }
+
     /** A boolean preference as a StateFlow plus its setter. */
     inner class Flag(private val key: String, default: Boolean) {
         private val f = flow(p.getBoolean(key, default))
@@ -101,6 +106,8 @@ class Settings(private val ctx: Context) {
     val bellVibrate = Flag("bell_vibrate", true)
     /** Claude Code's permission and question menus as buttons, in the pane and in notifications. */
     val answerButtons = Flag("answer_buttons", true)
+    /** Claude Code panes open as a conversation (read from the session's transcript) instead of the terminal. */
+    val chatView = Flag("chat_view", true)
     /** The strip of Claude Code controls (mode, effort, slash commands) above the key bar. */
     val claudeBar = Flag("claude_bar", true)
     /** Panes open with the message box (autocorrect, dictation) instead of typing into the terminal. */

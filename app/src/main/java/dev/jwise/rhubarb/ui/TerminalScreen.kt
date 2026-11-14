@@ -292,6 +292,24 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     val prog = programOf(bl)
     val isClaude = prog.name == "Claude Code"
     val agentProfile = dev.jwise.rhubarb.agent.AgentProfiles.forProgram(prog.name)
+
+    // Chat view (Claude Code): the session's transcript as a conversation, followed live through a
+    // hidden helper on the Mac. The top bar switches between it and the terminal.
+    val chatPref by app.settings.chatView.value.collectAsState()
+    var chatChoice by remember { mutableStateOf<Boolean?>(null) }
+    val showChat = isClaude && (chatChoice ?: chatPref)
+    val follower = remember(isClaude) { if (isClaude) dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId) else null }
+    DisposableEffect(follower) { onDispose { follower?.stop() } }
+    LaunchedEffect(follower, showChat) {
+        if (follower == null || !showChat) return@LaunchedEffect
+        val cwd = runCatching {
+            h.control.blockCall(sessionId, blockId, "com.superlogical.terminal.process")?.jsonObject
+                ?.get("foreground")?.jsonObject?.get("cwd")?.jsonPrimitive?.contentOrNull
+        }.getOrNull() ?: bl?.pwd?.let { p -> if (p.startsWith("file://")) "/" + p.removePrefix("file://").substringAfter('/') else p }
+        if (cwd != null) follower.start(cwd)
+    }
+    val chatItems by (follower?.items ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsState()
+    val chatStatus by (follower?.status ?: remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }).collectAsState()
     val answerOn by app.settings.answerButtons.value.collectAsState()
     val stripOn by app.settings.claudeBar.value.collectAsState()
     var claude by remember { mutableStateOf<dev.jwise.rhubarb.agent.ClaudeScreen?>(null) }
@@ -477,6 +495,9 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
+                    if (isClaude) IconButton(onClick = { chatChoice = !showChat }) {
+                        if (showChat) Icon(Sym.Terminal, "Show the terminal") else Icon(Sym.Chat, "Show the conversation")
+                    }
                     if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Sym.ZoomOut, "Smaller") }
                     if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Sym.ZoomIn, "Larger") }
                     var paneMenu by remember { mutableStateOf(false) }
@@ -536,6 +557,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 } else {
                     AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
                 }
+                if (showChat) ChatView(chatItems, chatStatus, claude?.working == true, termBg, termFg, Modifier.fillMaxSize())
                 // Invisible owner of the soft keyboard; tapping the terminal focuses it.
                 AndroidView(factory = { inputView }, modifier = Modifier.size(1.dp))
                 upload?.let { p ->
@@ -544,7 +566,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 }
                 val snap by ghostty.snapshot.collectAsState()
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = useGhostty && snap?.viewportAtBottom == false,
+                    visible = useGhostty && snap?.viewportAtBottom == false && !showChat,
                     enter = androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()) + androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
                     exit = androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()) + androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
                     modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
