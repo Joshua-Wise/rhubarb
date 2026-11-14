@@ -34,7 +34,9 @@ const verbose_snapshot_perf_logs = false;
 //      pane-scoped selection.)
 //  14  cursor_style (the visual shape the app requested via DECSCUSR:
 //      0 = block, 1 = bar, 2 = underline, 3 = block_hollow)
-const SNAPSHOT_HEADER_I32_COUNT = 15;
+//  15  viewport_at_bottom (1 when the viewport shows the active area, i.e. the
+//      user hasn't scrolled back into history)
+const SNAPSHOT_HEADER_I32_COUNT = 16;
 const SNAPSHOT_CELL_SIZE_BYTES = 11;
 // Flag bit set on a cell whose codepoint has additional grapheme codepoints
 // in the extras section.
@@ -967,6 +969,14 @@ export fn chuchu_build_text_snapshot(handle: c.jlong, out_size: [*c]usize) callc
         .block_hollow => 3,
     };
     writeIntLe(i32, buffer[0..base_total_size], 56, cursor_style);
+    const viewport_at_bottom: i32 = blk: {
+        const pages = &terminal.terminal.screens.active.pages;
+        if (pages.viewport == .active) break :blk 1;
+        const vp = pages.pointFromPin(.screen, pages.getTopLeft(.viewport)) orelse break :blk 1;
+        const act = pages.pointFromPin(.screen, pages.getTopLeft(.active)) orelse break :blk 1;
+        break :blk if (vp.screen.y >= act.screen.y) 1 else 0;
+    };
+    writeIntLe(i32, buffer[0..base_total_size], 60, viewport_at_bottom);
 
     terminal.snapshot_extras_scratch.clearRetainingCapacity();
     var extras_records: usize = 0;

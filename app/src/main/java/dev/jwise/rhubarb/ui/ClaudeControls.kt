@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shield
@@ -77,23 +78,28 @@ fun ClaudeStrip(screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (Str
     var effortMenu by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         if (screen?.working == true) AssistChip(
             onClick = { onKeys("\u001b") }, label = { Text("Stop") },
             leadingIcon = { Icon(Icons.Default.Stop, null, Modifier.size(AssistChipDefaults.IconSize)) },
-            colors = AssistChipDefaults.assistChipColors(leadingIconContentColor = MaterialTheme.colorScheme.error),
+            shape = CircleShape, border = null,
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer, labelColor = MaterialTheme.colorScheme.onErrorContainer,
+                leadingIconContentColor = MaterialTheme.colorScheme.onErrorContainer),
         )
         AssistChip(
             onClick = { onKeys("\u001b[Z") },
             label = { Text(screen?.mode?.let { modeName(it) } ?: "Mode") },
+            shape = CircleShape, border = null, colors = tonalChip(),
             leadingIcon = { Icon(Icons.Default.Shield, "Permission mode, tap for the next", Modifier.size(AssistChipDefaults.IconSize)) },
         )
         Box {
             AssistChip(
                 onClick = { effortMenu = true },
                 label = { Text(screen?.effort?.let { "Effort: $it" } ?: "Effort") },
+                shape = CircleShape, border = null, colors = tonalChip(),
                 leadingIcon = { Icon(Icons.Default.Speed, null, Modifier.size(AssistChipDefaults.IconSize)) },
             )
             DropdownMenu(expanded = effortMenu, onDismissRequest = { effortMenu = false }) {
@@ -107,7 +113,8 @@ fun ClaudeStrip(screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (Str
             }
         }
         STRIP_COMMANDS.forEach { c ->
-            AssistChip(onClick = { if (c == "/clear") confirmClear = true else onCommand(c) }, label = { Text(c) })
+            AssistChip(onClick = { if (c == "/clear") confirmClear = true else onCommand(c) }, label = { Text(c) },
+                shape = CircleShape, border = null, colors = tonalChip())
         }
     }
     if (confirmClear) AlertDialog(
@@ -127,3 +134,9 @@ private fun modeName(m: String) = when (m) {
     "manual" -> "Manual"
     else -> m.replaceFirstChar { it.uppercase() }
 }
+
+@Composable
+private fun tonalChip() = AssistChipDefaults.assistChipColors(
+    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    leadingIconContentColor = MaterialTheme.colorScheme.primary,
+)

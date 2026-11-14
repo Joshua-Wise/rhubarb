@@ -36,6 +36,7 @@ class Notifier(private val ctx: Context) {
         const val CH_DONE = "done"
         const val CH_PROGRAM = "program"
         const val CH_SERVICE = "service"
+        const val CH_WORKING = "working"
         const val EXTRA_SESSION = "session_id"
         const val EXTRA_BLOCK = "block_id"
         const val KEY_REPLY = "reply"
@@ -59,6 +60,9 @@ class Notifier(private val ctx: Context) {
         })
         nm.createNotificationChannel(NotificationChannel(CH_PROGRAM, "Program notifications", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "Notifications that terminal programs send (OSC 9 / OSC 777)"
+        })
+        nm.createNotificationChannel(NotificationChannel(CH_WORKING, "Working", NotificationManager.IMPORTANCE_LOW).apply {
+            description = "A live, silent notification while a coding agent works"
         })
         nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "Watching Rex", NotificationManager.IMPORTANCE_MIN).apply {
             description = "Shown while the app keeps a connection open to watch your sessions"
@@ -121,10 +125,51 @@ class Notifier(private val ctx: Context) {
         NotificationManagerCompat.from(ctx).cancel(notifId(blockId, 1))
     }
 
+    /** When each working pane started, for the notification's timer. */
+    private val workingSince = ConcurrentHashMap<String, Long>()
+
+    /**
+     * The live "working" notification for [blockId]: silent and ongoing, with the program's progress
+     * (or an indeterminate bar) and a timer. Android 16 shows it as a chip in the status bar.
+     */
+    private fun postWorking(sessionId: String, blockId: String, hub: RexHub, who: String, msg: String) {
+        val app = RexApp.instance
+        if (!app.settings.liveProgress.value.value || app.visibleBlockId == blockId) return
+        val since = workingSince.getOrPut(blockId) { System.currentTimeMillis() }
+        val pct = hub.live.value[blockId]?.progress
+        // (ProgressStyle has its own apply(), so no Kotlin apply {} here.)
+        val style = NotificationCompat.ProgressStyle()
+        if (pct != null && pct >= 0) style.setProgress(pct) else style.setProgressIndeterminate(true)
+        val short = pretty(who).substringBefore(' ')
+        post(notifId(blockId, 4), NotificationCompat.Builder(ctx, CH_WORKING)
+            .setSmallIcon(R.drawable.ic_stat_rhubarb)
+            .setContentTitle("${pretty(who)} is working")
+            .setContentText(msg.ifBlank { hub.describe(blockId) })
+            .setSubText(hub.describe(blockId).takeIf { msg.isNotBlank() })
+            .setStyle(style)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setWhen(since).setShowWhen(true).setUsesChronometer(true)
+            .setShortCriticalText(if (pct != null && pct >= 0) "$pct%" else short)
+            .setRequestPromotedOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setContentIntent(openIntent(sessionId, blockId)))
+    }
+
+    private fun cancelWorking(blockId: String) {
+        workingSince.remove(blockId)
+        NotificationManagerCompat.from(ctx).cancel(notifId(blockId, 4))
+    }
+
     fun onBlockEvent(sessionId: String, blockId: String, name: String, payload: JsonObject?, hub: RexHub) {
         val app = RexApp.instance
         val onScreen = app.visibleBlockId == blockId
         when (name) {
+            "progress_report" -> hub.live.value[blockId]?.top?.takeIf { it.state == "working" }?.let { top ->
+                postWorking(sessionId, blockId, hub, top.app ?: "A program", top.msg ?: top.title ?: "")
+            }
+            "child_exited" -> cancelWorking(blockId)
             "program_status_changed" -> {
                 val recId = payload?.get("id")?.jsonPrimitive?.contentOrNull ?: ""
                 val rec = payload?.get("record")?.jsonObject ?: return
@@ -135,6 +180,7 @@ class Notifier(private val ctx: Context) {
                 val who = rec["effective_app"]?.jsonPrimitive?.contentOrNull ?: rec["app"]?.jsonPrimitive?.contentOrNull ?: "A program"
                 val msg = rec["msg"]?.jsonPrimitive?.contentOrNull ?: rec["title"]?.jsonPrimitive?.contentOrNull ?: ""
                 val where = hub.describe(blockId)
+                if (state == "working") postWorking(sessionId, blockId, hub, who, msg) else cancelWorking(blockId)
                 when (state) {
                     "blocked" -> {
                         if (onScreen) return

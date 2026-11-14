@@ -125,3 +125,15 @@ fun ProgramAvatar(program: Program, status: ProgramStatus?) {
 fun Centered(content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) { content() }
 }
+
+/** A program's state as a small tinted tag ("Working", "Done", "Needs permission"). */
+@Composable
+fun StatusTag(s: dev.jwise.rhubarb.rex.ProgramStatus?) {
+    val label = statusLabel(s) ?: return
+    val c = statusColor(s?.state)
+    androidx.compose.material3.Surface(shape = CircleShape, color = c.copy(alpha = 0.16f)) {
+        Text(label, color = c, style = MaterialTheme.typography.labelMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+    }
+}

@@ -14,7 +14,7 @@ class ClaudeScreenReaderTest {
     }
 
     @Test fun bashPermission() {
-        val p = assertNotNull(screen("claude-permission-bash").prompt).let { screen("claude-permission-bash").prompt!! }
+        val p = screen("claude-permission-bash").prompt!!
         assertEquals("Do you want to proceed?", p.question)
         assertTrue(p.permission)
         assertEquals(listOf(1, 2, 3, 4), p.options.map { it.number })
@@ -74,6 +74,14 @@ class ClaudeScreenReaderTest {
         assertEquals("medium", screen("claude-working").effort)
         assertTrue(screen("claude-working").working)
         assertFalse(screen("claude-idle-manual").working)
+    }
+
+    @Test fun effortBadgeWithAnyMeter() {
+        val lines = listOf("                ◐ medium · /effort", "────────────", "❯ Try \"fix typecheck errors\"", "────────────",
+            "  ⏸ manual mode on · ? for shortcuts")
+        val s = ClaudeScreenReader.read(lines)
+        assertEquals("medium", s.effort)
+        assertEquals("manual", s.mode)
     }
 
     @Test fun sameAsComparesQuestionAndOptions() {

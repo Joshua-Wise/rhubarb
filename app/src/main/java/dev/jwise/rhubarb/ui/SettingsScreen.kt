@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -153,7 +154,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             }
 
             SectionHeader("Notifications")
-            GroupItem(0, 3,
+            GroupItem(0, 4,
                 leading = { Icon(Icons.Default.NotificationsActive, null) },
                 headline = { Text("Watch in background") },
                 supporting = { Text("Keep a connection open so agents that need you can alert this phone") },
@@ -163,16 +164,18 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                         if (it) WatchService.start(ctx) else WatchService.stop(ctx)
                     })
                 })
-            GroupItem(1, 3,
+            GroupItem(1, 4,
                 leading = { Icon(Icons.Default.DoneAll, null) },
                 headline = { Text("When work finishes") },
                 supporting = { Text("Notify when a program goes from working to done") },
                 trailing = { Switch(notifyDone, onCheckedChange = { notifyDone = it; app.notifyDone = it }) })
-            GroupItem(2, 3,
+            GroupItem(2, 4,
                 leading = { Icon(Icons.Default.Sms, null) },
                 headline = { Text("Program notifications") },
                 supporting = { Text("Show notifications that terminal programs send") },
                 trailing = { Switch(notifyPrograms, onCheckedChange = { st.setNotifyPrograms(it) }) })
+            FlagItem(3, 4, st.liveProgress, Icons.Default.Timelapse, "Live progress",
+                "While an agent works, show a silent notification with its progress. On Android 16 it also shows in the status bar.")
 
             SectionHeader("Appearance")
             val dynCount = if (Build.VERSION.SDK_INT >= 31) 3 else 2

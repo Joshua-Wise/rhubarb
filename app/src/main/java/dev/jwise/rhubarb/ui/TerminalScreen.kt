@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
 import androidx.compose.material.icons.filled.Download
@@ -449,9 +450,17 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
         }
     }
 
+    // The pane runs edge to edge: the bars take the terminal's own background.
+    val termBg = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor("#" + palette.bg))
+    val termFg = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor("#" + palette.fg))
     Scaffold(
+        containerColor = termBg,
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = termBg, scrolledContainerColor = termBg, titleContentColor = termFg,
+                    navigationIconContentColor = termFg, actionIconContentColor = termFg,
+                ),
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = {
                     Column {
@@ -464,21 +473,17 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                             (conn as? dev.jwise.rhubarb.rex.ConnState.Failed)?.reason,
                             statusLabel(bl?.top)?.let { "${bl?.top?.app ?: ""} $it".trim() },
                             bl?.title?.ifBlank { null },
-                            gridSize.ifBlank { null },
                         ).joinToString(" · ")
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (bl?.top != null) { StatusDot(bl.top?.state); Spacer(Modifier.width(6.dp)) }
-                            Text(sub, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(sub, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                color = termFg.copy(alpha = 0.7f))
                         }
                     }
                 },
                 actions = {
                     if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
                     if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
-                    IconButton(onClick = { pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Icon(Icons.Default.AddPhotoAlternate, "Send image")
-                    }
-                    IconButton(onClick = { jumpToLive() }) { Icon(Icons.Default.VerticalAlignBottom, "Scroll to bottom") }
                     var paneMenu by remember { mutableStateOf(false) }
                     androidx.compose.foundation.layout.Box {
                         IconButton(onClick = { paneMenu = true }) { Icon(Icons.Default.MoreVert, "More") }
@@ -493,6 +498,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                             }
                             if (useGhostty) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Icons.Default.Search, null) },
                                 onClick = { paneMenu = false; compose = false; finding = true })
+                            DropdownMenuItem(text = { Text("Send an image") }, leadingIcon = { Icon(Icons.Default.AddPhotoAlternate, null) },
+                                onClick = { paneMenu = false; pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                             if (h.control.apiRevision >= dev.jwise.rhubarb.rex.RexDownload.MIN_REVISION)
                                 DropdownMenuItem(text = { Text("Download a file") }, leadingIcon = { Icon(Icons.Default.Download, null) },
                                     onClick = { paneMenu = false; downloading = true })
@@ -535,8 +542,19 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 // Invisible owner of the soft keyboard; tapping the terminal focuses it.
                 AndroidView(factory = { inputView }, modifier = Modifier.size(1.dp))
                 upload?.let { p ->
-                    UploadPill(p, Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                    UploadPill(p, Modifier.align(Alignment.BottomStart).padding(12.dp),
                         onCancel = { uploadJob?.cancel(); upload = null })
+                }
+                val snap by ghostty.snapshot.collectAsState()
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = useGhostty && snap?.viewportAtBottom == false,
+                    enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                ) {
+                    androidx.compose.material3.SmallFloatingActionButton(onClick = { jumpToLive() }) {
+                        Icon(Icons.Default.ArrowDownward, "Jump to latest")
+                    }
                 }
             }
             if (!finding && isClaude) {
@@ -565,20 +583,39 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             )
             if (compose) {
                 // Optional message box: useful for voice typing or autocorrected prose.
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
+                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+                    IconButton(onClick = { pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        modifier = Modifier.padding(bottom = 4.dp)) {
+                        Icon(Icons.Default.AddPhotoAlternate, "Send an image", tint = termFg)
+                    }
+                    androidx.compose.material3.TextField(
                         value = input, onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text(if (isClaude) "Message Claude…" else "Compose a message…") },
-                        textStyle = MaterialTheme.typography.bodyMedium,
+                        placeholder = { Text(if (isClaude) "Message Claude" else "Message") },
+                        textStyle = MaterialTheme.typography.bodyLarge,
                         maxLines = 5,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+                        colors = androidx.compose.material3.TextFieldDefaults.colors(
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { sendMessage() }),
                     )
-                    IconButton(onClick = ::sendMessage) {
+                    Spacer(Modifier.width(8.dp))
+                    val stop = input.isEmpty() && claude?.working == true
+                    androidx.compose.material3.FilledIconButton(
+                        onClick = ::sendMessage, modifier = Modifier.size(56.dp),
+                        colors = if (stop) androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                        else androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(),
+                    ) {
                         when {
                             input.isNotEmpty() -> Icon(Icons.AutoMirrored.Filled.Send, "Send")
-                            claude?.working == true -> Icon(Icons.Default.Stop, "Stop", tint = MaterialTheme.colorScheme.error)
+                            stop -> Icon(Icons.Default.Stop, "Stop")
                             else -> Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Press Enter")
                         }
                     }

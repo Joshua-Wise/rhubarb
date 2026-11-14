@@ -48,7 +48,7 @@ object ClaudeScreenReader {
     private val OPTION = Regex("""^(\s*)(❯|›|>)?(\s*)([1-9])\.\s+(.*\S)\s*$""")
     private val CHECKBOX = Regex("""^(\[[ xX✔]]|[☐☒✔])\s""")
     private val MODE = Regex("""(?:⏸|⏵⏵|⏵)\s*([a-z][a-z ]*?)(?: mode)? on\b""")
-    private val EFFORT = Regex("""(?:thinking with (\w+) effort|●\s*(\w+)\s*·\s*/effort|@(low|medium|high|xhigh|max)\b)""")
+    private val EFFORT = Regex("""(?:thinking with (\w+) effort|[●◐◑◒◓◔◕○]\s*(\w+)\s*·\s*/effort|@(low|medium|high|xhigh|max)\b)""")
     val EFFORT_LEVELS = listOf("low", "medium", "high", "xhigh", "max")
     private val SPINNER = Regex("""^[·✢✳✶✻✽*]\s+\S.*…""")
 

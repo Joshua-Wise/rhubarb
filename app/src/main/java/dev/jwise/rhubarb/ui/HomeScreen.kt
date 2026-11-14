@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -169,6 +170,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
         }
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val fabExpanded by remember { androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex <= 1 } }
 
     // The "Needs you" board: what each agent needs, grouped. Finished and failed work stays until
     // its pane is opened or its card cleared.
@@ -253,7 +256,12 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
         },
         floatingActionButton = {
             if (conn is ConnState.Connected) {
-                MediumFloatingActionButton(onClick = { creating = "" }) { Icon(Icons.Default.Add, "New session", Modifier.size(28.dp)) }
+                androidx.compose.material3.ExtendedFloatingActionButton(
+                    onClick = { creating = "" },
+                    expanded = fabExpanded,
+                    icon = { Icon(Icons.Default.Add, null) },
+                    text = { Text("New session") },
+                )
             }
         },
     ) { pad ->
@@ -262,7 +270,10 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             onRefresh = { scope.launch { refreshing = true; hub?.refreshAll(); refreshing = false } },
             modifier = Modifier.padding(pad).fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp)) {
+                // A fixed first row: rows that appear above the sessions later (the board) then show
+                // instead of landing above the top of a list that hasn't been scrolled.
+                item(key = "top") { Spacer(Modifier.height(1.dp)) }
                 if (conn is ConnState.Failed && sessions.isEmpty()) {
                     item {
                         Card(
@@ -284,6 +295,20 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                 if (boardOn) for ((group, list) in groups) {
                     item(key = "g:$group") { SectionHeader("$group · ${list.size}") }
                     itemsIndexed(list, key = { _, p -> "b:$group:" + p.blockId }) { _, p ->
+                        val clearable = group == "Finished" || group == "Failed"
+                        val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState()
+                        LaunchedEffect(swipe.currentValue) {
+                            if (swipe.currentValue != androidx.compose.material3.SwipeToDismissBoxValue.Settled) {
+                                app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt)
+                            }
+                        }
+                        androidx.compose.material3.SwipeToDismissBox(
+                            state = swipe, gesturesEnabled = clearable,
+                            backgroundContent = {
+                                if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
+                                    SwipeBackground(Icons.Default.Check, "Clear", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                            },
+                        ) {
                         BoardCard(
                             p, live[p.blockId], group,
                             prompt = prompts[p.blockId].takeIf { group == "Needs you" },
@@ -292,6 +317,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             onClear = { app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt) },
                             onAnswer = { mp, o -> answer(p, mp, o) },
                         )
+                        }
                     }
                 }
                 if (!boardOn && attention.isNotEmpty()) {
@@ -374,6 +400,24 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             val wins = s.windows
                             val wi = wins.indexOfFirst { it.windowId == p.windowId }
                             androidx.compose.foundation.layout.Box {
+                            // Swipe left to close the tab (asks first), as in Gmail.
+                            val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState()
+                            LaunchedEffect(swipe.currentValue) {
+                                if (swipe.currentValue == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
+                                    confirm = Confirm("Close ${p.window}?",
+                                        "Stops everything running in this tab, on every Rex client.", "Close tab") {
+                                        it.closeWindow(p.sessionId, p.windowId)
+                                    }
+                                    swipe.reset()
+                                }
+                            }
+                            androidx.compose.material3.SwipeToDismissBox(
+                                state = swipe, enableDismissFromStartToEnd = false,
+                                backgroundContent = {
+                                    if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
+                                        SwipeBackground(Icons.Default.Close, "Close tab", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                                },
+                            ) {
                             GroupItem(
                                 index = i, count = sPanes.size,
                                 onClick = { onOpen(p.sessionId, p.blockId) },
@@ -395,12 +439,9 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                         }
                                     }
                                 },
-                                trailing = {
-                                    statusLabel(top)?.let {
-                                        Text(it, style = MaterialTheme.typography.labelMedium, color = statusColor(top?.state))
-                                    }
-                                },
+                                trailing = { StatusTag(top) },
                             )
+                            }
                             DropdownMenu(expanded = menuFor == "p:" + p.blockId, onDismissRequest = { menuFor = null },
                                 offset = androidx.compose.ui.unit.DpOffset(32.dp, 0.dp)) {
                                 MenuItem("Rename tab", Icons.Default.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.window) }
@@ -617,6 +658,20 @@ private fun BoardCard(
                 androidx.compose.material3.TextButton(onClick = onOpen) { Text("Open") }
             }
         }
+    }
+}
+
+/** What shows under a row while it's swiped: a coloured strip with an icon and label at the end. */
+@Composable
+private fun SwipeBackground(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color) {
+    Row(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 1.dp)
+            .background(bg, MaterialTheme.shapes.large).padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.width(8.dp))
+        Icon(icon, null, tint = fg)
     }
 }
 

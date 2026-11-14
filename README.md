@@ -45,8 +45,12 @@ GitHub builds are signed differently and can't update each other, so stick with 
   message box sends whole messages (or Stop while it works), and a strip of controls switches the
   permission mode, sets the effort level and runs common slash commands.
 - **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
-  working) with how long ago each changed. Finished work stays until you open it or clear it.
-  Turn it off in Settings.
+  working) with how long ago each changed. Finished work stays until you open it or clear it
+  (or swipe it away). Turn it off in Settings.
+- **Live progress**: while an agent works, a silent notification shows its progress and a timer;
+  on Android 16 it's also a chip in the status bar. Needs Watch in background when Rhubarb is closed.
+- **Feels like Android**: swipe a tab left on Home to close it, predictive back, Material You
+  colours, and a pane that runs edge to edge with a "jump to latest" button when you scroll back.
 - **Download files from the Mac**: ⋮ → Download a file browses the pane's machine from its
   folder; save, open or share what you pick. Needs Rex API revision 13.
 - **Programs can copy to the phone**: text a program copies with OSC 52 (Neovim, tmux) lands on

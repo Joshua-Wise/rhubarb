@@ -105,7 +105,17 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
         )
     }
 
-    NavHost(nav, startDestination = if (hasServer) "home" else "server") {
+    // Material's shared-axis motion: forward slides in from the right, back reverses it. The back
+    // gesture scrubs through the same animation (predictive back).
+    val ease = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+    val fade = androidx.compose.animation.core.tween<Float>(250)
+    NavHost(
+        nav, startDestination = if (hasServer) "home" else "server",
+        enterTransition = { androidx.compose.animation.slideInHorizontally(ease) { it / 6 } + androidx.compose.animation.fadeIn(fade) },
+        exitTransition = { androidx.compose.animation.slideOutHorizontally(ease) { -it / 6 } + androidx.compose.animation.fadeOut(fade) },
+        popEnterTransition = { androidx.compose.animation.slideInHorizontally(ease) { -it / 6 } + androidx.compose.animation.fadeIn(fade) },
+        popExitTransition = { androidx.compose.animation.slideOutHorizontally(ease) { it / 6 } + androidx.compose.animation.fadeOut(fade) },
+    ) {
         composable("server") {
             ServerScreen(onSaved = {
                 hasServer = true
