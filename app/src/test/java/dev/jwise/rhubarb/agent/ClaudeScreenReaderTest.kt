@@ -84,6 +84,21 @@ class ClaudeScreenReaderTest {
         assertEquals("manual", s.mode)
     }
 
+    @Test fun codexApproval() {
+        val text = javaClass.classLoader!!.getResource("screens/codex-approval.txt")!!.readText()
+        val p = ClaudeScreenReader.readMenuOf(text.lines())!!
+        assertEquals("Would you like to run the following command?", p.question)
+        assertTrue(p.permission)
+        assertEquals(listOf(1, 2, 3), p.options.map { it.number })
+        assertEquals("Yes, proceed (y)", p.options[0].label)
+        assertTrue(p.options[0].selected)
+        assertTrue(p.options[2].label.startsWith("No, and tell Codex"))
+        assertEquals(3, p.answers.size)
+        assertTrue(p.context.any { it.startsWith("$ rex run") })
+        // Codex's profile reads the same menu along with its mode and model.
+        assertNotNull(AgentProfiles.codex.read(text.lines()).prompt)
+    }
+
     @Test fun sameAsComparesQuestionAndOptions() {
         val a = screen("claude-permission-bash").prompt!!
         assertTrue(a.sameAs(a.copy(context = emptyList())))

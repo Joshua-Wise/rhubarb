@@ -218,7 +218,8 @@ class Notifier(private val ctx: Context) {
                         b.addAction(replyAction(sessionId, blockId))
                         post(notifId(blockId, 1), b)
                         // Claude Code: read its menu off the screen and offer the options as buttons.
-                        if (who.contains("claude", ignoreCase = true) && app.settings.answerButtons.value.value) {
+                        // Claude Code and Codex: read the menu off the screen and offer its options.
+                        if ((who.contains("claude", ignoreCase = true) || who.contains("codex", ignoreCase = true)) && app.settings.answerButtons.value.value) {
                             app.scope.launch {
                                 val p = PromptAnswers.awaitPrompt(hub, sessionId, blockId) ?: return@launch
                                 if (lastState[key] != "blocked") return@launch

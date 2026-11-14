@@ -1,0 +1,24 @@
+
+• Running rex run -s "$REX_SESSION" -c "$PWD" --label Create-notes --keep-open …
+    + Show details
+
+
+  Would you like to run the following command?
+
+  Environment: local
+
+  Reason: May I access the local Rex server to run the requested shell command
+  and create notes.txt?
+
+  $ rex run -s "$REX_SESSION" -c "$PWD" --label Create-notes --keep-open
+  --focus=false --json --wait -- sh -c 'printf hello > notes.txt && cat
+  notes.txt'
+
+
+› 1. Yes, proceed (y)
+  2. Yes, and don't ask again for commands that start with `rex run -s
+     "$REX_SESSION" -c "$PWD" --label Create-notes --keep-open --focus=false
+     --json --wait -- sh -c 'printf hello > notes.txt && cat notes.txt' ` (p)
+  3. No, and tell Codex what to do differently (esc)
+
+  Press enter to confirm or esc to cancel

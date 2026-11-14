@@ -591,7 +591,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 }
             }
             if (!finding && agentProfile != null) {
-                if (isClaude) claude?.prompt?.takeIf { answerOn && it.answers.isNotEmpty() }?.let { p ->
+                claude?.prompt?.takeIf { answerOn && it.answers.isNotEmpty() }?.let { p ->
                     AnswerCard(p, answering) { o -> answer(p, o) }
                 }
                 if (stripOn) AgentStrip(agentProfile, claude, onKeys = { k -> jumpToLive(); send(k); scope.launch { delay(400); readTick++ } }, onCommand = ::command)

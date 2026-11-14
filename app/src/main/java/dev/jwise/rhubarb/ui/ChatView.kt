@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import dev.jwise.rhubarb.agent.ChatItem
 import dev.jwise.rhubarb.agent.ToolCall
 import dev.jwise.rhubarb.agent.toolsTitle
+import kotlinx.coroutines.launch
 
 /**
  * A Claude Code session as a conversation: your messages as bubbles, Claude's replies as formatted
@@ -64,19 +65,16 @@ fun ChatView(items: List<ChatItem>, status: String?, working: Boolean, backgroun
     // and new ones keep it in view while you're at the bottom.
     val list = rememberLazyListState()
     val count = items.size + (if (working) 1 else 0)
-    // Stay on the newest message (also while the backlog loads) until you drag away to read;
-    // coming back to the bottom follows again.
+    // Stay on the newest message (also while the backlog loads) until you drag away to read. Whether
+    // to follow is decided only once a drag or fling has fully stopped, and "at the bottom" means
+    // the very end of the list, not merely the newest message being partly in view.
     var follow by remember { mutableStateOf(true) }
+    fun atBottom() = list.firstVisibleItemIndex == 0 && list.firstVisibleItemScrollOffset < 24
     LaunchedEffect(list) {
-        list.interactionSource.interactions.collect { i ->
-            when (i) {
-                is androidx.compose.foundation.interaction.DragInteraction.Start -> follow = false
-                is androidx.compose.foundation.interaction.DragInteraction.Stop,
-                is androidx.compose.foundation.interaction.DragInteraction.Cancel -> follow = list.firstVisibleItemIndex == 0
-            }
-        }
+        list.interactionSource.interactions.collect { if (it is androidx.compose.foundation.interaction.DragInteraction.Start) follow = false }
     }
-    LaunchedEffect(list) { snapshotFlow { list.firstVisibleItemIndex == 0 && !list.isScrollInProgress }.collect { if (it) follow = true } }
+    LaunchedEffect(list) { snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = atBottom() } }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(count, follow) { if (follow && count > 0) list.scrollToItem(0) }
 
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides foreground) {
@@ -107,6 +105,14 @@ fun ChatView(items: List<ChatItem>, status: String?, working: Boolean, backgroun
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
                     is ChatItem.Tools -> ToolsRow(item)
                 }
+            }
+        }
+        // Back to the newest message while you're scrolled up, as in the terminal.
+        AnimatedVisibility(!follow, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut()) {
+            androidx.compose.material3.SmallFloatingActionButton(onClick = { scope.launch { list.animateScrollToItem(0); follow = true } }) {
+                Icon(Sym.ArrowDownward, "Jump to latest")
             }
         }
     }

@@ -46,6 +46,7 @@ object AgentProfiles {
             val bottom = lines.takeLast(4)
             val footer = bottom.lastOrNull { codexFooter.containsMatchIn(it) }
             ClaudeScreen(
+                prompt = ClaudeScreenReader.readMenuOf(lines),
                 mode = if (footer?.trimEnd()?.endsWith("Plan mode") == true) "plan" else if (footer != null) "default" else null,
                 model = footer?.let { codexFooter.find(it)?.groupValues?.get(1)?.trim() },
                 working = working(lines),

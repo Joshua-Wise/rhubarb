@@ -14,7 +14,8 @@ data class MenuOption(val number: Int, val label: String, val detail: String?, v
         get() = TYPING.any { label.contains(it, ignoreCase = true) }
 
     private companion object {
-        val TYPING = listOf("Type something", "Chat about this", "tell Claude what to do", "Type here")
+        // "No, and tell Claude/Codex what to do differently" declines at once, so it stays a button.
+        val TYPING = listOf("Type something", "Chat about this", "Type here")
     }
 }
 
@@ -81,6 +82,9 @@ object ClaudeScreenReader {
 
     private fun indent(l: String) = l.length - l.trimStart().length
 
+    /** A live numbered menu at the bottom of [lines] (Claude Code's or Codex's), or null. */
+    fun readMenuOf(lines: List<String>): MenuPrompt? = readMenu(lines.map { stripBox(it.trimEnd()) }.dropLastWhile { it.isBlank() })
+
     private fun readMenu(rows: List<String>): MenuPrompt? {
         var i = rows.lastIndex
         // Below a live menu there's at most a few lines of key hints ("Esc to cancel · Tab to amend").
@@ -127,19 +131,34 @@ object ClaudeScreenReader {
         if (opts.map { it.number } != (1..opts.size).toList()) return null
         if (opts.count { it.selected } != 1) return null
 
-        // The question: the text right above the options (skipping one blank line).
-        while (i >= 0 && rows[i].isBlank()) i--
-        val q = ArrayList<String>()
-        while (i >= 0 && rows[i].isNotBlank() && !isRule(rows[i]) && q.size < 3) { q.add(0, rows[i].trim()); i-- }
-        // What it's about: up to the rule above the prompt (a command, a file name, a tab label).
-        val ctx = ArrayList<String>()
+        // Everything above the options up to the rule over the prompt (or ~16 lines): a command, a file
+        // name, a reason. The question is the line nearest the options that ends in "?" (Codex puts
+        // the command between its question and the options); without one, the text right above.
+        val above = ArrayList<String>()
         var guard = 0
         while (i >= 0 && guard++ < 16) {
             val r = rows[i]
             if (isRule(r) && r.trim().startsWith("──")) break
-            if (r.isNotBlank() && !isRule(r) && !r.trim().startsWith("Tip:")) ctx.add(0, r.trim().removePrefix("☐ ").trim())
+            if (!isRule(r)) above.add(0, r.trim())
             i--
         }
-        return MenuPrompt(q.joinToString(" ").ifBlank { null }, ctx.takeLast(6), opts)
+        val asks = Regex("^(Do you|Would you|Allow|Should|Which|What|Proceed|Continue|Are you)", RegexOption.IGNORE_CASE)
+        val qi = above.indexOfLast { it.endsWith("?") && asks.containsMatchIn(it) }.takeIf { it >= 0 }
+            ?: above.indexOfLast { it.endsWith("?") }
+        val question: String?
+        val ctxLines: List<String>
+        if (qi >= 0) {
+            question = above[qi]
+            ctxLines = above.filterIndexed { k, _ -> k != qi }
+        } else {
+            var k = above.lastIndex
+            while (k >= 0 && above[k].isBlank()) k--
+            val q = ArrayList<String>()
+            while (k >= 0 && above[k].isNotBlank() && q.size < 3) { q.add(0, above[k]); k-- }
+            question = q.joinToString(" ").ifBlank { null }
+            ctxLines = above.subList(0, (k + 1).coerceAtLeast(0))
+        }
+        val ctx = ctxLines.filter { it.isNotBlank() && !it.startsWith("Tip:") }.map { it.removePrefix("☐ ").trim() }
+        return MenuPrompt(question, ctx.takeLast(6), opts)
     }
 }

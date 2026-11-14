@@ -175,7 +175,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     LaunchedEffect(waitingKey, answerOn, boardOn, hub) {
         val h = hub
         if (!answerOn || !boardOn || h == null) { prompts = emptyMap(); return@LaunchedEffect }
-        prompts = attention.filter { programOf(live[it.blockId]).name == "Claude Code" }.mapNotNull { p ->
+        prompts = attention.filter { programOf(live[it.blockId]).name in setOf("Claude Code", "Codex") }.mapNotNull { p ->
             dev.jwise.rhubarb.agent.PromptAnswers.awaitPrompt(h, p.sessionId, p.blockId, 3_000)?.let { p.blockId to it }
         }.toMap()
     }

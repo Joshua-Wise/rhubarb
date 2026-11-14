@@ -46,10 +46,11 @@ fun AnswerCard(p: MenuPrompt, busy: Boolean, onAnswer: (MenuOption) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val about = p.context.lastOrNull()?.takeIf { p.permission }
+            // The command it asks about ("$ npm test"), else the last line of context.
+            val about = (p.context.firstOrNull { it.startsWith("$ ") } ?: p.context.lastOrNull())?.takeIf { p.permission }
             if (about != null) Text(about, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text(p.question ?: "Claude Code is asking", style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(p.question ?: "The agent is asking", style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
             p.answers.forEach { o ->
                 val content: @Composable () -> Unit = {
                     Text("${o.number}. ${o.label}", maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
