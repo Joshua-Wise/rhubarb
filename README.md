@@ -39,12 +39,17 @@ GitHub builds are signed differently and can't update each other, so stick with 
   long), clears the screen, or resets the terminal.
 - **Share into a pane**: share text or images from any app to Rhubarb and pick a tab. Text is
   pasted at the prompt (not sent), and images go to the Mac like the image button.
-- **Claude Code from the phone**: when Claude Code asks for permission or asks a question, its
-  options show as buttons in the pane, on Home and on the notification. The screen is read again
+- **Claude Code and Codex from the phone**: when Claude Code or Codex asks for permission or asks
+  a question, its options show as buttons in the pane, on Home and on the notification. The screen is read again
   before a button presses anything, so a stale question is never answered. In Claude Code panes a
   message box sends whole messages (or Stop while it works), and a strip of controls switches the
   permission mode, sets the effort level and runs common slash commands. Codex, OpenCode, Copilot
   CLI and Gemini CLI get their own strips: their mode (Shift+Tab), model picker and commands.
+- **Chat view (experimental)**: a Claude Code or Codex pane can show its session as a conversation
+  instead of the terminal: your messages as bubbles, the agent's replies formatted, and commands
+  and edits folded into rows that open. A button in the pane's top bar switches between the two,
+  and Settings sets which one panes open in. It reads the agent's own session files on the Mac
+  through a hidden helper that Rhubarb starts in the session and closes when you leave the pane.
 - **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
   working) with how long ago each changed. Finished work stays until you open it or clear it
   (or swipe it away). The eye in Home's bottom bar shows or hides it.
@@ -155,7 +160,7 @@ app/src/main/java/dev/jwise/rhubarb/
   rex/TerminalStream.kt  data WebSocket: ticket HELLO, RESUME w/ exact byte count, APC parsing
   rex/RexHub.kt          live model: sessions, views, titles, program statuses
   rex/RexDownload.kt     files from the pane's machine (download_begin + rex.data.bytes.v1)
-  agent/                 reading and answering Claude Code's menus, mode and effort
+  agent/                 agents' menus, mode and effort; chat view's session readers
   service/Notifier.kt    events -> notifications (+ Reply action)
   service/WatchService.kt foreground service keeping the connection alive
   ui/                    Compose screens (server setup, home, terminal)

@@ -1,6 +1,6 @@
 # Rhubarb Privacy Policy
 
-_Last updated: November 14, 2026 (sending files and dictation added for version 0.17)_
+_Last updated: November 14, 2026 (chat view added for version 0.19)_
 
 Rhubarb is an unofficial Android client for [Rex](https://superlogical.com), a terminal app for the Mac. It connects your Android device to a Rex server that you run yourself. Rhubarb is not affiliated with Superlogical.
 
@@ -29,6 +29,10 @@ Rhubarb connects only to the server addresses you enter. Over that connection it
 - Your device's name, so the server can show which device is connected.
 
 That server is yours. What happens to the data there is up to you and Rex's own policies. Rhubarb doesn't send any of it anywhere else.
+
+## Chat view
+
+When you open a Claude Code or Codex pane in chat view, Rhubarb starts a small hidden helper in that session on your Mac. It reads the agent's own session files in your home folder there (Claude Code's `~/.claude/projects`, Codex's `~/.codex/sessions`) for the pane's folder and sends the conversation to your phone over your connection to your Rex server, trimmed to messages, commands and short tool output. Rhubarb shows it and keeps the most recent few in memory; it doesn't save it on your device or send it anywhere else. The helper closes when you leave the pane and ends by itself after two hours.
 
 ## Notifications
 

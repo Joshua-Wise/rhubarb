@@ -37,7 +37,6 @@ Collected 2026-11-14.
   `move_block`). Hatch's version is the best (MIT, `PullToSplit.kt`).
 - **Tailscale inside the app** (official tsnet; Headscale). Rexling, RexPocket.
 - **Connect over SSH** (forward Rex's socket, start it if missing). Rexling, rex-rune.
-- **Chat view of Claude Code sessions** from the transcript in `~/.claude/projects/`. Fetching whole
-  files is heavy until Rex supports ranged downloads.
+- **Chat view for OpenCode, Copilot CLI and Gemini CLI** (Claude Code and Codex have it).
 - **Quick Settings tile, app lock, launcher shortcuts** (Hatch has `Shortcuts.kt`), pane thumbnails,
   usage/cost per pane.
