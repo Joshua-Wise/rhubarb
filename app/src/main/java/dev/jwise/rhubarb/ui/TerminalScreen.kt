@@ -296,20 +296,26 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     // Chat view (Claude Code): the session's transcript as a conversation, followed live through a
     // hidden helper on the Mac. The top bar switches between it and the terminal.
     val chatPref by app.settings.chatView.value.collectAsState()
-    var chatChoice by remember { mutableStateOf<Boolean?>(null) }
     val chatSource = dev.jwise.rhubarb.agent.TranscriptSources.forProgram(prog.name)
-    val showChat = chatSource != null && (chatChoice ?: chatPref)
     val follower = remember(chatSource) {
-        chatSource?.let { dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId, it) }
+        chatSource?.let { src ->
+            dev.jwise.rhubarb.agent.ChatFollowers.get("$sessionId/$blockId/${src.program}") {
+                dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId, src)
+            }
+        }
     }
+    // Remembered with the reader, so it survives leaving the app.
+    var chatChoice by remember(follower) { mutableStateOf(follower?.choice) }
+    val showChat = chatSource != null && (chatChoice ?: chatPref)
+    // The reader stops with the screen (its helper is closed) but keeps what it has shown.
     DisposableEffect(follower) { onDispose { follower?.stop() } }
-    LaunchedEffect(follower, showChat) {
+    LaunchedEffect(follower, showChat, h) {
         if (follower == null || !showChat) return@LaunchedEffect
         val cwd = runCatching {
             h.control.blockCall(sessionId, blockId, "com.superlogical.terminal.process")?.jsonObject
                 ?.get("foreground")?.jsonObject?.get("cwd")?.jsonPrimitive?.contentOrNull
         }.getOrNull() ?: bl?.pwd?.let { p -> if (p.startsWith("file://")) "/" + p.removePrefix("file://").substringAfter('/') else p }
-        if (cwd != null) follower.start(cwd)
+        if (cwd != null) follower.start(cwd, h)
     }
     val chatItems by (follower?.items ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsState()
     val chatStatus by (follower?.status ?: remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }).collectAsState()
@@ -504,7 +510,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    if (chatSource != null) IconButton(onClick = { chatChoice = !showChat }) {
+                    if (chatSource != null) IconButton(onClick = { chatChoice = !showChat; follower?.choice = chatChoice }) {
                         if (showChat) Icon(Sym.Terminal, "Show the terminal") else Icon(Sym.Chat, "Show the conversation")
                     }
                     var paneMenu by remember { mutableStateOf(false) }
@@ -571,7 +577,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 } else {
                     AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
                 }
-                if (showChat) ChatView(chatItems, chatStatus, claude?.working == true, termBg, termFg, Modifier.fillMaxSize())
+                if (showChat) ChatView(chatItems, chatStatus, claude?.working == true, termBg, termFg, Modifier.fillMaxSize(),
+                    anchor = follower?.anchor, onAnchor = { follower?.anchor = it })
                 // Invisible owner of the soft keyboard; tapping the terminal focuses it.
                 AndroidView(factory = { inputView }, modifier = Modifier.size(1.dp))
                 upload?.let { p ->

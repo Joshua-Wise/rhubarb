@@ -92,6 +92,7 @@ class ChatModel {
     private val entries = ArrayList<Entry>()
     private val results = HashMap<String, Pair<String, Boolean>>()
     private var n = 0
+    private val seen = HashSet<String>()
 
     private val skipPrefixes = listOf("<local-command-stdout>", "<local-command-caveat>", "<system-reminder>", "<local-command-stderr>",
         "Caveat:", "<bash-input>", "<bash-stdout>", "<bash-stderr>", "<task-notification>")
@@ -100,10 +101,16 @@ class ChatModel {
     @Synchronized fun feed(o: JsonObject) {
         if (o["side"] != null || o["meta"] != null) return
         val type = o["t"]?.jsonPrimitive?.contentOrNull
-        val key = (o["u"]?.jsonPrimitive?.contentOrNull ?: "x") + "#" + (n++)
+        // Lines carry their own IDs: one already shown (the backlog is sent again when the reader
+        // restarts) changes nothing, and keys stay the same so the list keeps its place.
+        val u = o["u"]?.jsonPrimitive?.contentOrNull
+        if (u != null && !seen.add(u)) return
+        val key = u ?: ("x#" + (n++))
         val str = o["s"]?.jsonPrimitive?.contentOrNull
         val parts = o["p"] as? JsonArray
         when (type) {
+            // Claude Code's summary of the conversation so far, written when it compacts.
+            "note" -> str?.let { entries += Entry.Item(ChatItem.Note(key, it)) }
             "user" -> {
                 if (str != null) userText(key, str, 0)
                 parts?.forEachIndexed { i, p ->
@@ -168,9 +175,15 @@ class ChatModel {
  * before the stream is connected, ends itself after two hours, and is closed when the pane closes.
  */
 class TranscriptFollower(
-    private val h: RexHub, private val sessionId: String, private val scope: CoroutineScope, installId: String,
+    private var h: RexHub, private val sessionId: String, private val scope: CoroutineScope, installId: String,
     private val source: TranscriptSource = TranscriptSources.claude,
 ) {
+    /** Where the chat was scrolled to (the item at the top of the view and how far into it), kept
+     *  while you're in the terminal or away from the app. Null: at the newest message. */
+    var anchor: Pair<String, Int>? = null
+    /** Terminal or chat, as last chosen for this pane (null: the setting decides). */
+    var choice: Boolean? = null
+
     /** This install's helpers carry this label, so leftovers (the app was killed) can be found and closed. */
     private val label = "rhubarb-chat:$installId"
     private val _items = MutableStateFlow<List<ChatItem>>(emptyList())
@@ -183,8 +196,11 @@ class TranscriptFollower(
     private var stream: TerminalStream? = null
     private val model = ChatModel()
 
-    fun start(cwd: String) {
-        if (job != null) return
+    /** Starts (or restarts, on a new connection) reading. Items already shown stay. */
+    fun start(cwd: String, hub: RexHub = h) {
+        if (job != null && hub === h) return
+        if (job != null) stop()
+        h = hub
         // Nothing here may take the app down: a failure shows in the chat instead.
         val guard = kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
             android.util.Log.w("Transcript", "chat reader failed", e)
@@ -221,14 +237,25 @@ class TranscriptFollower(
                 val buf = StringBuilder()
                 var started = false
                 var dirty = false
+                // The first time, show the conversation once the backlog has arrived (output quiet for
+                // a moment), not piece by piece; after that, update as lines come in.
+                var shown = _items.value.isNotEmpty()
+                var lastOut = System.currentTimeMillis()
+                val began = lastOut
                 launch {
-                    while (true) { delay(120); if (dirty) { dirty = false; _items.value = model.items() } }
+                    while (true) {
+                        delay(120)
+                        val now = System.currentTimeMillis()
+                        if (!shown && (now - lastOut > 400 || now - began > 15_000)) shown = true
+                        if (dirty && shown) { dirty = false; _items.value = model.items(); _status.value = null }
+                    }
                 }
                 launch(start = CoroutineStart.UNDISPATCHED) {
                     s.events.collect { ev ->
                         when (ev) {
                             is TermEvent.Resize -> if (!started) { started = true; h.write(sessionId, bid, "\r") }
                             is TermEvent.Output -> {
+                                lastOut = System.currentTimeMillis()
                                 buf.append(String(ev.bytes, Charsets.UTF_8))
                                 // Split once per chunk; keep the unfinished last line for the next one.
                                 val last = buf.lastIndexOf("\n")
@@ -241,8 +268,8 @@ class TranscriptFollower(
                                     val json = line.substring(brace)
                                     val o = runCatching { Json.parseToJsonElement(json).jsonObject }.getOrNull() ?: continue
                                     if (o["t"]?.jsonPrimitive?.contentOrNull == "rhubarb") {
-                                        _status.value = if (o["none"] != null) "No ${source.program} conversation found for this folder." else null
-                                    } else { runCatching { model.feed(o) }; dirty = true; _status.value = null }
+                                        _status.value = if (o["none"] != null) "No ${source.program} conversation found for this folder." else if (_items.value.isEmpty()) "Loading the conversation…" else null
+                                    } else { runCatching { model.feed(o) }; dirty = true }
                                 }
                             }
                             TermEvent.Closed -> if (_items.value.isEmpty()) _status.value = "The conversation reader stopped."
@@ -259,6 +286,7 @@ class TranscriptFollower(
 
     fun stop() {
         job?.cancel(); job = null
+        _status.value = if (_items.value.isEmpty()) "Loading the conversation…" else null
         stream?.stop(); stream = null
         val bid = blockId ?: return
         blockId = null
@@ -286,6 +314,7 @@ while (my ${'$'}l = <STDIN>) {
   my ${'$'}m = ${'$'}o->{message} || {}; my ${'$'}c = ${'$'}m->{content};
   my %out = (t => ${'$'}o->{type}, u => ${'$'}o->{uuid});
   ${'$'}out{side} = 1 if ${'$'}o->{isSidechain}; ${'$'}out{meta} = 1 if ${'$'}o->{isMeta};
+  if (${'$'}o->{isCompactSummary}) { print ${'$'}j->encode({ t => 'note', u => ${'$'}o->{uuid}, s => 'Conversation compacted' }), "\n"; next }
   if (!ref ${'$'}c) { ${'$'}out{s} = cut(${'$'}c, 8000) }
   else {
     my @p;
@@ -306,6 +335,19 @@ while (my ${'$'}l = <STDIN>) {
   print ${'$'}j->encode(\%out), "\n";
 }"""
     }
+}
+
+/**
+ * Chat readers outlive the pane screen (which goes away when you leave the app), so coming back
+ * finds the conversation, the scroll position and the Terminal/Chat choice as they were. The few
+ * most recently opened panes are kept.
+ */
+object ChatFollowers {
+    private val kept = object : LinkedHashMap<String, TranscriptFollower>(8, 0.75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, TranscriptFollower>?): Boolean =
+            (size > 6).also { if (it) e?.value?.stop() }
+    }
+    @Synchronized fun get(key: String, make: () -> TranscriptFollower): TranscriptFollower = kept.getOrPut(key, make)
 }
 
 /**

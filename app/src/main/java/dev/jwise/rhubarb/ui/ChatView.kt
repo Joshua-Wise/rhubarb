@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import dev.jwise.rhubarb.agent.ChatItem
 import dev.jwise.rhubarb.agent.ToolCall
 import dev.jwise.rhubarb.agent.toolsTitle
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /**
@@ -60,7 +61,12 @@ import kotlinx.coroutines.launch
  * [dev.jwise.rhubarb.agent.TranscriptFollower]); replies go through the message box below.
  */
 @Composable
-fun ChatView(items: List<ChatItem>, status: String?, working: Boolean, background: Color, foreground: Color, modifier: Modifier = Modifier) {
+fun ChatView(
+    items: List<ChatItem>, status: String?, working: Boolean, background: Color, foreground: Color, modifier: Modifier = Modifier,
+    /** Where you were last time (the top item's key and how far into it); null: the newest message. */
+    anchor: Pair<String, Int>? = null,
+    onAnchor: (Pair<String, Int>?) -> Unit = {},
+) {
     // Anchored at the bottom like a chat app: the newest message sits just above the message box,
     // and new ones keep it in view while you're at the bottom.
     val list = rememberLazyListState()
@@ -68,12 +74,28 @@ fun ChatView(items: List<ChatItem>, status: String?, working: Boolean, backgroun
     // Stay on the newest message (also while the backlog loads) until you drag away to read. Whether
     // to follow is decided only once a drag or fling has fully stopped, and "at the bottom" means
     // the very end of the list, not merely the newest message being partly in view.
-    var follow by remember { mutableStateOf(true) }
+    var follow by remember { mutableStateOf(anchor == null) }
+    // Back where you were, once the conversation is there.
+    var restored by remember { mutableStateOf(anchor == null) }
+    LaunchedEffect(items.isNotEmpty()) {
+        if (restored || items.isEmpty() || anchor == null) return@LaunchedEffect
+        val i = items.asReversed().indexOfFirst { it.key == anchor.first }
+        if (i >= 0) list.scrollToItem(i + (if (working) 1 else 0), anchor.second) else follow = true
+        restored = true
+    }
+    // Remember the place for next time (the terminal, or leaving the app, removes this view).
+    LaunchedEffect(list) {
+        snapshotFlow { Triple(follow, list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset) }.collect { (f, _, off) ->
+            if (!restored) return@collect
+            if (f) onAnchor(null)
+            else (list.layoutInfo.visibleItemsInfo.firstOrNull()?.key as? String)?.takeIf { it != "working" }?.let { onAnchor(it to off) }
+        }
+    }
     fun atBottom() = list.firstVisibleItemIndex == 0 && list.firstVisibleItemScrollOffset < 24
     LaunchedEffect(list) {
         list.interactionSource.interactions.collect { if (it is androidx.compose.foundation.interaction.DragInteraction.Start) follow = false }
     }
-    LaunchedEffect(list) { snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = atBottom() } }
+    LaunchedEffect(list) { snapshotFlow { list.isScrollInProgress }.drop(1).collect { scrolling -> if (!scrolling && restored) follow = atBottom() } }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(count, follow) { if (follow && count > 0) list.scrollToItem(0) }
 

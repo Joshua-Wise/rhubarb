@@ -47,4 +47,17 @@ class TranscriptTest {
         println("lines=${lines.size} items=${items.size} kinds=${items.groupingBy { it::class.simpleName }.eachCount()}")
         assertTrue(items.isNotEmpty())
     }
+
+    @Test fun compactSummaryAndRepeatsAreNotes() {
+        val m = ChatModel()
+        val lines = listOf(
+            """{"t":"user","u":"a","s":"hello"}""",
+            """{"t":"note","u":"b","s":"Conversation compacted"}""",
+            """{"t":"user","u":"a","s":"hello"}""",
+        )
+        lines.forEach { m.feed(kotlinx.serialization.json.Json.parseToJsonElement(it).jsonObject) }
+        val items = m.items()
+        org.junit.Assert.assertEquals(2, items.size)
+        org.junit.Assert.assertEquals(ChatItem.Note("b", "Conversation compacted"), items[1])
+    }
 }
