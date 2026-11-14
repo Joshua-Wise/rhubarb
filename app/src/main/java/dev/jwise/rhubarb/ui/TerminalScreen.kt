@@ -498,8 +498,6 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     if (isClaude) IconButton(onClick = { chatChoice = !showChat }) {
                         if (showChat) Icon(Sym.Terminal, "Show the terminal") else Icon(Sym.Chat, "Show the conversation")
                     }
-                    if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Sym.ZoomOut, "Smaller") }
-                    if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Sym.ZoomIn, "Larger") }
                     var paneMenu by remember { mutableStateOf(false) }
                     androidx.compose.foundation.layout.Box {
                         IconButton(onClick = { paneMenu = true }) { Icon(Sym.MoreVert, "More") }
@@ -512,8 +510,15 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                                     }
                                 }
                             }
-                            if (useGhostty) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Sym.Search, null) },
+                            if (useGhostty && !showChat) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Sym.Search, null) },
                                 onClick = { paneMenu = false; compose = false; finding = true })
+                            // Zoom only applies when the pane keeps the Mac's size (Fit to phone off).
+                            if (!owned && !showChat) {
+                                DropdownMenuItem(text = { Text("Larger text") }, leadingIcon = { Icon(Sym.ZoomIn, null) },
+                                    onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") })
+                                DropdownMenuItem(text = { Text("Smaller text") }, leadingIcon = { Icon(Sym.ZoomOut, null) },
+                                    onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") })
+                            }
                             DropdownMenuItem(text = { Text("Send an image") }, leadingIcon = { Icon(Sym.AddPhotoAlternate, null) },
                                 onClick = { paneMenu = false; pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                             if (h.control.apiRevision >= dev.jwise.rhubarb.rex.RexDownload.MIN_REVISION)

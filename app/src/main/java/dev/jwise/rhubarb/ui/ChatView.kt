@@ -64,7 +64,20 @@ fun ChatView(items: List<ChatItem>, status: String?, working: Boolean, backgroun
     // and new ones keep it in view while you're at the bottom.
     val list = rememberLazyListState()
     val count = items.size + (if (working) 1 else 0)
-    LaunchedEffect(count) { if (list.firstVisibleItemIndex <= 1) list.animateScrollToItem(0) }
+    // Stay on the newest message (also while the backlog loads) until you drag away to read;
+    // coming back to the bottom follows again.
+    var follow by remember { mutableStateOf(true) }
+    LaunchedEffect(list) {
+        list.interactionSource.interactions.collect { i ->
+            when (i) {
+                is androidx.compose.foundation.interaction.DragInteraction.Start -> follow = false
+                is androidx.compose.foundation.interaction.DragInteraction.Stop,
+                is androidx.compose.foundation.interaction.DragInteraction.Cancel -> follow = list.firstVisibleItemIndex == 0
+            }
+        }
+    }
+    LaunchedEffect(list) { snapshotFlow { list.firstVisibleItemIndex == 0 && !list.isScrollInProgress }.collect { if (it) follow = true } }
+    LaunchedEffect(count, follow) { if (follow && count > 0) list.scrollToItem(0) }
 
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides foreground) {
     Box(modifier.background(background)) {
