@@ -137,3 +137,6 @@ fun StatusTag(s: dev.jwise.rhubarb.rex.ProgramStatus?) {
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
+
+/** "1 session", "3 sessions". */
+fun plural(n: Int, word: String) = if (n == 1) "1 $word" else "$n ${word}s"

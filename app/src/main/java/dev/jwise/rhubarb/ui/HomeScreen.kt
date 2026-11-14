@@ -203,7 +203,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             // The server's name, large, collapsing into a slim bar on scroll (as in Settings).
             // Tap it to switch hosts. The subtitle is the connection state.
             val (dot, text) = when (conn) {
-                is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
+                is ConnState.Connected -> "done" to "${plural(sessions.size, "session")} · ${plural(panes.size, "pane")}"
                 is ConnState.Connecting -> "working" to "Connecting…"
                 is ConnState.Failed -> "error" to "Offline · ${(conn as ConnState.Failed).reason}"
                 ConnState.Idle -> null to "Idle"
