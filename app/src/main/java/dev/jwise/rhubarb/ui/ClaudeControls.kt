@@ -61,17 +61,16 @@ fun AnswerCard(p: MenuPrompt, busy: Boolean, onAnswer: (MenuOption) -> Unit) {
     }
 }
 
-/** Slash commands on the strip. Tapping sends them; /clear asks first. */
-private val STRIP_COMMANDS = listOf("/model", "/compact", "/context", "/usage", "/resume", "/rewind", "/clear")
-
 /**
- * Claude Code's controls above the key bar: the permission mode (tap cycles it with Shift+Tab),
- * effort (pick a level), Stop while it works, and common slash commands.
+ * A coding agent's controls above the key bar, from its [dev.jwise.rhubarb.agent.AgentProfile]:
+ * its mode (tap cycles it with the agent's own key), effort or model, Stop while it works, and
+ * its common slash commands. Commands that throw the conversation away ask first.
  */
 @Composable
-fun ClaudeStrip(screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (String) -> Unit) {
+fun AgentStrip(profile: dev.jwise.rhubarb.agent.AgentProfile, screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (String) -> Unit) {
     var effortMenu by remember { mutableStateOf(false) }
-    var confirmClear by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf<String?>(null) }
+    val isClaude = profile.effortLevels != null
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
@@ -85,48 +84,60 @@ fun ClaudeStrip(screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (Str
                 leadingIconContentColor = MaterialTheme.colorScheme.onErrorContainer),
         )
         AssistChip(
-            onClick = { onKeys("\u001b[Z") },
-            label = { Text(screen?.mode?.let { modeName(it) } ?: "Mode") },
+            onClick = { onKeys(profile.modeKey) },
+            label = { Text(screen?.mode?.let { modeName(it, isClaude) } ?: "Mode") },
             shape = CircleShape, border = null, colors = tonalChip(),
-            leadingIcon = { Icon(Sym.Shield, "Permission mode, tap for the next", Modifier.size(AssistChipDefaults.IconSize)) },
+            leadingIcon = { Icon(Sym.Shield, "Mode, tap for the next", Modifier.size(AssistChipDefaults.IconSize)) },
         )
-        Box {
-            AssistChip(
-                onClick = { effortMenu = true },
-                label = { Text(screen?.effort?.let { "Effort: $it" } ?: "Effort") },
-                shape = CircleShape, border = null, colors = tonalChip(),
-                leadingIcon = { Icon(Sym.Speed, null, Modifier.size(AssistChipDefaults.IconSize)) },
-            )
-            DropdownMenu(expanded = effortMenu, onDismissRequest = { effortMenu = false }) {
-                ClaudeScreenReader.EFFORT_LEVELS.forEach { level ->
-                    DropdownMenuItem(
-                        text = { Text(level) },
-                        trailingIcon = { if (level == screen?.effort) Icon(Sym.Check, "Current") },
-                        onClick = { effortMenu = false; onCommand("/effort $level") },
-                    )
+        profile.effortLevels?.let { levels ->
+            Box {
+                AssistChip(
+                    onClick = { effortMenu = true },
+                    label = { Text(screen?.effort?.let { "Effort: $it" } ?: "Effort") },
+                    shape = CircleShape, border = null, colors = tonalChip(),
+                    leadingIcon = { Icon(Sym.Speed, null, Modifier.size(AssistChipDefaults.IconSize)) },
+                )
+                DropdownMenu(expanded = effortMenu, onDismissRequest = { effortMenu = false }) {
+                    levels.forEach { level ->
+                        DropdownMenuItem(
+                            text = { Text(level) },
+                            trailingIcon = { if (level == screen?.effort) Icon(Sym.Check, "Current") },
+                            onClick = { effortMenu = false; onCommand("/effort $level") },
+                        )
+                    }
                 }
             }
         }
-        STRIP_COMMANDS.forEach { c ->
-            AssistChip(onClick = { if (c == "/clear") confirmClear = true else onCommand(c) }, label = { Text(c) },
+        // Other agents pick model and effort in their own picker; the chip shows what's in use.
+        profile.modelCommand?.let { cmd ->
+            AssistChip(
+                onClick = { onCommand(cmd) },
+                label = { Text(screen?.model?.let { if (it.length > 28) it.take(27) + "…" else it } ?: profile.modelChipName,
+                    maxLines = 1) },
+                shape = CircleShape, border = null, colors = tonalChip(),
+                leadingIcon = { Icon(Sym.Speed, null, Modifier.size(AssistChipDefaults.IconSize)) },
+            )
+        }
+        profile.commands.forEach { c ->
+            AssistChip(onClick = { if (c in profile.confirm) confirming = c else onCommand(c) }, label = { Text(c) },
                 shape = CircleShape, border = null, colors = tonalChip())
         }
     }
-    if (confirmClear) AlertDialog(
-        onDismissRequest = { confirmClear = false },
-        title = { Text("Clear the conversation?") },
-        text = { Text("Claude Code starts over with an empty context. The conversation can still be picked up later with /resume.") },
-        confirmButton = { TextButton(onClick = { confirmClear = false; onCommand("/clear") }) { Text("Clear") } },
-        dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
-    )
+    confirming?.let { c ->
+        AlertDialog(
+            onDismissRequest = { confirming = null },
+            title = { Text("Start over?") },
+            text = { Text("$c starts ${profile.program} on a fresh conversation. The old one can usually be picked up again later.") },
+            confirmButton = { TextButton(onClick = { confirming = null; onCommand(c) }) { Text(c) } },
+            dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
+        )
+    }
 }
 
-private fun modeName(m: String) = when (m) {
-    "default" -> "Ask first"
-    "accept edits" -> "Accept edits"
-    "auto" -> "Auto"
-    "plan" -> "Plan"
-    "manual" -> "Manual"
+private fun modeName(m: String, claude: Boolean) = when {
+    claude && m == "default" -> "Ask first"
+    m == "accept edits" -> "Accept edits"
+    m == "auto-edit" || m == "auto_edit" -> "Auto-edit"
     else -> m.replaceFirstChar { it.uppercase() }
 }
 

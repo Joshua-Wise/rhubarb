@@ -43,7 +43,8 @@ GitHub builds are signed differently and can't update each other, so stick with 
   options show as buttons in the pane, on Home and on the notification. The screen is read again
   before a button presses anything, so a stale question is never answered. In Claude Code panes a
   message box sends whole messages (or Stop while it works), and a strip of controls switches the
-  permission mode, sets the effort level and runs common slash commands.
+  permission mode, sets the effort level and runs common slash commands. Codex, OpenCode, Copilot
+  CLI and Gemini CLI get their own strips: their mode (Shift+Tab), model picker and commands.
 - **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
   working) with how long ago each changed. Finished work stays until you open it or clear it
   (or swipe it away). Turn it off in Settings.

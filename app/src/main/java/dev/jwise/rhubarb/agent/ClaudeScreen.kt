@@ -41,6 +41,8 @@ data class ClaudeScreen(
     val effort: String? = null,
     /** Claude is working and Esc would interrupt it. */
     val working: Boolean = false,
+    /** The model (and effort) the agent's footer shows, for agents other than Claude Code. */
+    val model: String? = null,
 )
 
 object ClaudeScreenReader {

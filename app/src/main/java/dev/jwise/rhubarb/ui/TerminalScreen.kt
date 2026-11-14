@@ -291,18 +291,21 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     // the controls strip and the message box.
     val prog = programOf(bl)
     val isClaude = prog.name == "Claude Code"
+    val agentProfile = dev.jwise.rhubarb.agent.AgentProfiles.forProgram(prog.name)
     val answerOn by app.settings.answerButtons.value.collectAsState()
     val stripOn by app.settings.claudeBar.value.collectAsState()
     var claude by remember { mutableStateOf<dev.jwise.rhubarb.agent.ClaudeScreen?>(null) }
     var readTick by remember { mutableStateOf(0) }
-    LaunchedEffect(isClaude) {
-        if (!isClaude) { claude = null; return@LaunchedEffect }
+    LaunchedEffect(agentProfile) {
+        val profile = agentProfile ?: run { claude = null; return@LaunchedEffect }
         var seenRx = -1L; var seenTick = -1; var last = 0L
         while (true) {
             val now = System.currentTimeMillis()
             if (app.foreground && (rx != seenRx || readTick != seenTick || now - last > 5000)) {
                 seenRx = rx; seenTick = readTick; last = now
-                dev.jwise.rhubarb.agent.PromptAnswers.read(h, sessionId, blockId)?.let { claude = it }
+                if (profile === dev.jwise.rhubarb.agent.AgentProfiles.claude)
+                    dev.jwise.rhubarb.agent.PromptAnswers.read(h, sessionId, blockId)?.let { claude = it }
+                else runCatching { profile.read(h.screenTail(sessionId, blockId)) }.getOrNull()?.let { claude = it }
             }
             delay(450)
         }
@@ -551,11 +554,11 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 }
             }
-            if (!finding && isClaude) {
-                claude?.prompt?.takeIf { answerOn && it.answers.isNotEmpty() }?.let { p ->
+            if (!finding && agentProfile != null) {
+                if (isClaude) claude?.prompt?.takeIf { answerOn && it.answers.isNotEmpty() }?.let { p ->
                     AnswerCard(p, answering) { o -> answer(p, o) }
                 }
-                if (stripOn) ClaudeStrip(claude, onKeys = { k -> jumpToLive(); send(k); scope.launch { delay(400); readTick++ } }, onCommand = ::command)
+                if (stripOn) AgentStrip(agentProfile, claude, onKeys = { k -> jumpToLive(); send(k); scope.launch { delay(400); readTick++ } }, onCommand = ::command)
             }
             if (finding) FindBar(
                 query = findQuery, onQuery = { findQuery = it },
