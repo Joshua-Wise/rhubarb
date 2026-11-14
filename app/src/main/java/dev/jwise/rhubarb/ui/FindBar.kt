@@ -5,11 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,7 +41,7 @@ fun FindBar(
             value = query, onValueChange = onQuery,
             modifier = Modifier.weight(1f).focusRequester(focus),
             placeholder = { Text("Find in output") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
+            leadingIcon = { Icon(Sym.Search, null) },
             suffix = {
                 if (query.isNotEmpty()) Text(
                     if (count == 0) "No matches" else "$position of $count",
@@ -59,8 +54,8 @@ fun FindBar(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
             keyboardActions = KeyboardActions(onSearch = { onOlder() }),
         )
-        IconButton(onClick = onOlder, enabled = count > 1) { Icon(Icons.Default.KeyboardArrowUp, "Older match") }
-        IconButton(onClick = onNewer, enabled = count > 1) { Icon(Icons.Default.KeyboardArrowDown, "Newer match") }
-        IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Close find") }
+        IconButton(onClick = onOlder, enabled = count > 1) { Icon(Sym.KeyboardArrowUp, "Older match") }
+        IconButton(onClick = onNewer, enabled = count > 1) { Icon(Sym.KeyboardArrowDown, "Newer match") }
+        IconButton(onClick = onClose) { Icon(Sym.Close, "Close find") }
     }
 }

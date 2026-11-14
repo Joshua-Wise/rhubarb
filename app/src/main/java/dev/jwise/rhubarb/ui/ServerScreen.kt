@@ -12,8 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -135,7 +133,7 @@ private fun ServerForm(initialUrl: String, onSaved: () -> Unit) {
                         .setPrompt("Scan the code from \"rex server tailscale pair\" on your Mac")
                         .setBeepEnabled(false)
                         .setOrientationLocked(false))
-                }) { Icon(Icons.Default.QrCodeScanner, "Scan QR code") }
+                }) { Icon(Sym.QrCodeScanner, "Scan QR code") }
             },
             supportingText = {
                 Text(error ?: "Tailnet name, host:port or https:// address. Or scan the code from `rex server tailscale pair`.")

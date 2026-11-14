@@ -62,7 +62,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     // M3 Expressive components (LoadingIndicator, MaterialShapes, ButtonGroup, toolbars…) ship in 1.5.
     implementation("androidx.compose.material3:material3:1.5.0-rc01")
-    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 

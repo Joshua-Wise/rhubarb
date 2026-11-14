@@ -163,6 +163,6 @@ app/src/main/assets/term/ xterm.js 5.5.0 (MIT) host page
 ## License
 
 [MIT](LICENSE). Bundled third-party pieces keep their own licenses: Ghostty's terminal engine
-and xterm.js are MIT, the QR scanner (ZXing and zxing-android-embedded) is Apache 2.0, and the
+and xterm.js are MIT, the QR scanner (ZXing and zxing-android-embedded) and Google's Material Symbols icons are Apache 2.0, and the
 agent marks come from Simple Icons (CC0; the Copilot mark is MIT). The Claude Code prompt
 handling follows [chompy](https://github.com/jeffarese/chompy) (Apache 2.0); see [NOTICE](NOTICE).

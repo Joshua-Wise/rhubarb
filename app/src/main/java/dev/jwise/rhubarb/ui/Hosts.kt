@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -57,15 +53,15 @@ fun HostSheet(onDismiss: () -> Unit, onAddServer: () -> Unit) {
                 GroupItem(
                     i, hosts.size,
                     onClick = { if (!current) app.switchServer(url, label); onDismiss() },
-                    leading = { Icon(Icons.Default.Computer, null) },
+                    leading = { Icon(Sym.Computer, null) },
                     headline = { Text(label) },
                     supporting = { Text(displayAddress(url)) },
-                    trailing = { if (current) Icon(Icons.Default.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary) },
+                    trailing = { if (current) Icon(Sym.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary) },
                 )
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalArrangement = Arrangement.End) {
                 FilledTonalButton(onClick = { onDismiss(); onAddServer() }) {
-                    Icon(Icons.Default.Add, null); Text("  Add server")
+                    Icon(Sym.Add, null); Text("  Add server")
                 }
             }
         }

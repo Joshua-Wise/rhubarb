@@ -4,12 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,16 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MediumFloatingActionButton
@@ -73,6 +57,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
@@ -171,7 +156,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val fabExpanded by remember { androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex <= 1 } }
+    val toolbarScroll = androidx.compose.material3.FloatingToolbarDefaults.exitAlwaysScrollBehavior(
+        exitDirection = androidx.compose.material3.FloatingToolbarExitDirection.Bottom)
 
     // The "Needs you" board: what each agent needs, grouped. Finished and failed work stays until
     // its pane is opened or its card cleared.
@@ -216,8 +202,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Scaffold(
         topBar = {
-            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)) {
-                // Search app bar: a pill that opens full-screen search, with Settings beside it.
+            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)) {
+                // Search app bar: a full-width pill that opens full-screen search.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         onClick = { searching = true },
@@ -226,13 +212,12 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                         modifier = Modifier.weight(1f).height(56.dp),
                     ) {
                         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Sym.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text("Search $title", style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    IconButton(onClick = onSettings, modifier = Modifier.padding(start = 4.dp)) { Icon(Icons.Default.Settings, "Settings") }
                 }
                 // Host (tap to switch) and connection state.
                 Row(
@@ -247,21 +232,34 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                         ConnState.Idle -> null to "Idle"
                     }
                     Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Icons.Default.ArrowDropDown, "Switch host")
+                    Icon(Sym.ArrowDropDown, "Switch host")
                     Spacer(Modifier.width(8.dp))
                     StatusDot(dot); Spacer(Modifier.width(6.dp))
                     Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
+        // M3 Expressive floating toolbar: Settings, show/hide the board, hosts, and New session as
+        // its FAB. It slides away while the list scrolls down and comes back on the way up.
+        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
         floatingActionButton = {
-            if (conn is ConnState.Connected) {
-                androidx.compose.material3.ExtendedFloatingActionButton(
-                    onClick = { creating = "" },
-                    expanded = fabExpanded,
-                    icon = { Icon(Icons.Default.Add, null) },
-                    text = { Text("New session") },
-                )
+            androidx.compose.material3.HorizontalFloatingToolbar(
+                expanded = true,
+                scrollBehavior = toolbarScroll,
+                colors = androidx.compose.material3.FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
+                floatingActionButton = {
+                    androidx.compose.material3.FloatingToolbarDefaults.VibrantFloatingActionButton(
+                        onClick = { if (conn is ConnState.Connected) creating = "" },
+                    ) { Icon(Sym.Add, "New session") }
+                },
+            ) {
+                IconButton(onClick = onSettings, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(Sym.Settings, "Settings") }
+                androidx.compose.material3.IconToggleButton(checked = boardOn, onCheckedChange = { app.settings.board.set(it) },
+                    shapes = androidx.compose.material3.IconButtonDefaults.toggleableShapes()) {
+                    Icon(if (boardOn) Sym.VisibilityFilled else Sym.VisibilityOff,
+                        if (boardOn) "Hide the Needs you board" else "Show the Needs you board")
+                }
+                IconButton(onClick = { showHosts = true }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(Sym.Dns, "Hosts") }
             }
         },
     ) { pad ->
@@ -270,7 +268,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             onRefresh = { scope.launch { refreshing = true; hub?.refreshAll(); refreshing = false } },
             modifier = Modifier.padding(pad).fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp)) {
+            LazyColumn(Modifier.fillMaxSize().nestedScroll(toolbarScroll), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp)) {
                 // A fixed first row: rows that appear above the sessions later (the board) then show
                 // instead of landing above the top of a list that hasn't been scrolled.
                 item(key = "top") { Spacer(Modifier.height(1.dp)) }
@@ -281,7 +279,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                         ) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Default.CloudOff, null)
+                                Icon(Sym.CloudOff, null)
                                 Text("Can't reach $title", style = MaterialTheme.typography.titleMedium)
                                 Text((conn as ConnState.Failed).reason, style = MaterialTheme.typography.bodyMedium)
                                 Text("Check that Tailscale is on, on this phone and the Mac.", style = MaterialTheme.typography.bodySmall)
@@ -303,10 +301,14 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             }
                         }
                         androidx.compose.material3.SwipeToDismissBox(
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                                placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                                fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec()),
                             state = swipe, gesturesEnabled = clearable,
                             backgroundContent = {
                                 if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
-                                    SwipeBackground(Icons.Default.Check, "Clear", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                                    SwipeBackground(Sym.Check, "Clear", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
                             },
                         ) {
                         BoardCard(
@@ -369,22 +371,22 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 Text("$waiting waiting", style = MaterialTheme.typography.labelMedium); Spacer(Modifier.width(8.dp))
                             }
                             IconButton(onClick = { creating = s.sessionId }, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Default.Add, "New tab in ${s.label.ifBlank { "this session" }}", Modifier.size(20.dp))
+                                Icon(Sym.Add, "New tab in ${s.label.ifBlank { "this session" }}", Modifier.size(20.dp))
                             }
                             Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.ExpandMore, if (isCollapsed) "Expand" else "Collapse", modifier = Modifier.rotate(rot))
+                            Icon(Sym.ExpandMore, if (isCollapsed) "Expand" else "Collapse", modifier = Modifier.rotate(rot))
                         }
                         DropdownMenu(expanded = menuFor == "s:" + s.sessionId, onDismissRequest = { menuFor = null },
                             offset = androidx.compose.ui.unit.DpOffset(24.dp, 0.dp)) {
-                            MenuItem("Rename session", Icons.Default.Edit) { menuFor = null; renaming = Rename(s.sessionId, null, s.label) }
-                            if (si > 0) MenuItem("Move up", Icons.Default.ArrowUpward) {
+                            MenuItem("Rename session", Sym.Edit) { menuFor = null; renaming = Rename(s.sessionId, null, s.label) }
+                            if (si > 0) MenuItem("Move up", Sym.ArrowUpward) {
                                 act("move it") { it.moveSession(s.sessionId, sessions[si - 1].sessionId) }
                             }
-                            if (si in 0 until sessions.size - 1) MenuItem("Move down", Icons.Default.ArrowDownward) {
+                            if (si in 0 until sessions.size - 1) MenuItem("Move down", Sym.ArrowDownward) {
                                 act("move it") { it.moveSession(s.sessionId, sessions.getOrNull(si + 2)?.sessionId) }
                             }
                             HorizontalDivider()
-                            MenuItem("End session", Icons.Default.DeleteForever, danger = true) {
+                            MenuItem("End session", Sym.DeleteForever, danger = true) {
                                 menuFor = null
                                 confirm = Confirm("End ${s.label.ifBlank { "this session" }}?",
                                     "Closes all its tabs and stops everything running in them, on every Rex client.", "End session") {
@@ -399,7 +401,10 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             val l = live[p.blockId]; val top = l?.top; val prog = programOf(l)
                             val wins = s.windows
                             val wi = wins.indexOfFirst { it.windowId == p.windowId }
-                            androidx.compose.foundation.layout.Box {
+                            androidx.compose.foundation.layout.Box(Modifier.animateItem(
+                                fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                                placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                                fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec())) {
                             // Swipe left to close the tab (asks first), as in Gmail.
                             val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState()
                             LaunchedEffect(swipe.currentValue) {
@@ -415,7 +420,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 state = swipe, enableDismissFromStartToEnd = false,
                                 backgroundContent = {
                                     if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
-                                        SwipeBackground(Icons.Default.Close, "Close tab", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                                        SwipeBackground(Sym.Close, "Close tab", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
                                 },
                             ) {
                             GroupItem(
@@ -444,22 +449,22 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             }
                             DropdownMenu(expanded = menuFor == "p:" + p.blockId, onDismissRequest = { menuFor = null },
                                 offset = androidx.compose.ui.unit.DpOffset(32.dp, 0.dp)) {
-                                MenuItem("Rename tab", Icons.Default.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.window) }
-                                if (p.multi) MenuItem("Rename pane", Icons.Default.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.label, p.blockId) }
-                                if (wi > 0) MenuItem("Move tab up", Icons.Default.ArrowUpward) {
+                                MenuItem("Rename tab", Sym.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.window) }
+                                if (p.multi) MenuItem("Rename pane", Sym.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.label, p.blockId) }
+                                if (wi > 0) MenuItem("Move tab up", Sym.ArrowUpward) {
                                     act("move it") { it.moveWindow(p.sessionId, p.windowId, wins[wi - 1].windowId) }
                                 }
-                                if (wi in 0 until wins.size - 1) MenuItem("Move tab down", Icons.Default.ArrowDownward) {
+                                if (wi in 0 until wins.size - 1) MenuItem("Move tab down", Sym.ArrowDownward) {
                                     act("move it") { it.moveWindow(p.sessionId, p.windowId, wins.getOrNull(wi + 2)?.windowId) }
                                 }
-                                MenuItem("Share output", Icons.Default.Share) {
+                                MenuItem("Share output", Sym.Share) {
                                     act("share it") { sharePaneText(ctx, it, p.sessionId, p.blockId, p.window) }
                                 }
-                                MenuItem("Clear screen", Icons.Default.ClearAll) {
+                                MenuItem("Clear screen", Sym.ClearAll) {
                                     act("clear it") { it.clearPane(p.sessionId, p.blockId) }
                                 }
                                 HorizontalDivider()
-                                MenuItem("Close tab", Icons.Default.Close, danger = true) {
+                                MenuItem("Close tab", Sym.Close, danger = true) {
                                     menuFor = null
                                     confirm = Confirm("Close ${p.window}?",
                                         "Stops everything running in this tab, on every Rex client.", "Close tab") {
@@ -501,7 +506,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             title = when { r.blockId != null -> "Rename pane"; r.windowId != null -> "Rename tab"; else -> "Rename session" },
             hint = when { r.blockId != null -> "Pane name"; r.windowId != null -> "Tab name"; else -> "Session name" },
             detail = "Shows on every Rex client.",
-            busy = busy, initial = r.current, confirm = "Rename", icon = Icons.Default.Edit,
+            busy = busy, initial = r.current, confirm = "Rename", icon = Sym.Edit,
             onCreate = { rename(r, it) },
             onDismiss = { if (!busy) renaming = null },
         )
@@ -536,8 +541,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                     query = query, onQueryChange = { query = it }, onSearch = {},
                     expanded = true, onExpandedChange = { if (!it) close() },
                     placeholder = { Text("Search sessions and panes") },
-                    leadingIcon = { IconButton(onClick = { close() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search") } },
-                    trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "Clear") } },
+                    leadingIcon = { IconButton(onClick = { close() }) { Icon(Sym.ArrowBack, "Close search") } },
+                    trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Sym.Close, "Clear") } },
                 )
             },
             expanded = true,
@@ -567,7 +572,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 private fun NewDialog(
     title: String, hint: String, detail: String, busy: Boolean,
     onCreate: (String) -> Unit, onDismiss: () -> Unit,
-    initial: String = "", confirm: String = "Create", icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Add,
+    initial: String = "", confirm: String = "Create", icon: androidx.compose.ui.graphics.vector.ImageVector = Sym.Add,
 ) {
     var name by remember { mutableStateOf(initial) }
     AlertDialog(

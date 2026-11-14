@@ -7,29 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Sms
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Timelapse
-import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -95,7 +72,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Sym.ArrowBack, "Back") } },
                 scrollBehavior = scroll,
             )
         },
@@ -103,15 +80,15 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
             SectionHeader("Connection")
             GroupItem(0, 3, onClick = { editing = "host" },
-                leading = { Icon(Icons.Default.Computer, null) },
+                leading = { Icon(Sym.Computer, null) },
                 headline = { Text("Host name") },
                 supporting = { Text(hostLabel ?: app.defaultHostLabel()) })
             GroupItem(1, 3, onClick = onChangeServer,
-                leading = { Icon(Icons.Default.Link, null) },
+                leading = { Icon(Sym.Link, null) },
                 headline = { Text("Server address") },
                 supporting = { Text(app.serverUrl ?: "Not set") })
             GroupItem(2, 3, onClick = { editing = "device" },
-                leading = { Icon(Icons.Default.Badge, null) },
+                leading = { Icon(Sym.Badge, null) },
                 headline = { Text("This device's name") },
                 supporting = { Text("$deviceLabel · how this phone appears in Rex's client list") })
 
@@ -125,8 +102,8 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     // Hold a saved host (not the one in use) to forget it.
                     onLongClick = if (saved && !current) ({ forgetting = label to url }) else null,
                     leading = {
-                        if (current) Icon(Icons.Default.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary)
-                        else Icon(Icons.Default.Dns, null)
+                        if (current) Icon(Sym.CheckCircle, "Connected", tint = MaterialTheme.colorScheme.primary)
+                        else Icon(Sym.Dns, null)
                     },
                     headline = { Text(label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                     supporting = {
@@ -142,9 +119,9 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             SectionHeader("Server")
             val info = serverInfo
             if (info == null) {
-                GroupItem(0, 1, leading = { Icon(Icons.Default.Info, null) }, headline = { Text("Loading…") })
+                GroupItem(0, 1, leading = { Icon(Sym.Info, null) }, headline = { Text("Loading…") })
             } else if (info.isEmpty()) {
-                GroupItem(0, 1, leading = { Icon(Icons.Default.Info, null) }, headline = { Text("Not connected") })
+                GroupItem(0, 1, leading = { Icon(Sym.Info, null) }, headline = { Text("Not connected") })
             } else {
                 val rows = info.entries.toList()
                 rows.forEachIndexed { i, (k, v) ->
@@ -156,7 +133,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
 
             SectionHeader("Notifications")
             GroupItem(0, 4,
-                leading = { Icon(Icons.Default.NotificationsActive, null) },
+                leading = { Icon(Sym.NotificationsActive, null) },
                 headline = { Text("Watch in background") },
                 supporting = { Text("Keep a connection open so agents that need you can alert this phone") },
                 trailing = {
@@ -166,22 +143,22 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     })
                 })
             GroupItem(1, 4,
-                leading = { Icon(Icons.Default.DoneAll, null) },
+                leading = { Icon(Sym.DoneAll, null) },
                 headline = { Text("When work finishes") },
                 supporting = { Text("Notify when a program goes from working to done") },
                 trailing = { Switch(notifyDone, onCheckedChange = { notifyDone = it; app.notifyDone = it }) })
             GroupItem(2, 4,
-                leading = { Icon(Icons.Default.Sms, null) },
+                leading = { Icon(Sym.Sms, null) },
                 headline = { Text("Program notifications") },
                 supporting = { Text("Show notifications that terminal programs send") },
                 trailing = { Switch(notifyPrograms, onCheckedChange = { st.setNotifyPrograms(it) }) })
-            FlagItem(3, 4, st.liveProgress, Icons.Default.Timelapse, "Live progress",
+            FlagItem(3, 4, st.liveProgress, Sym.Timelapse, "Live progress",
                 "While an agent works, show a silent notification with its progress. On Android 16 it also shows in the status bar.")
 
             SectionHeader("Appearance")
             val dynCount = if (Build.VERSION.SDK_INT >= 31) 3 else 2
             GroupItem(0, dynCount,
-                leading = { Icon(Icons.Default.DarkMode, null) },
+                leading = { Icon(Sym.DarkMode, null) },
                 headline = { Text("Theme") },
                 supporting = {
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -195,13 +172,13 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                 })
             if (Build.VERSION.SDK_INT >= 31) {
                 GroupItem(1, dynCount,
-                    leading = { Icon(Icons.Default.Palette, null) },
+                    leading = { Icon(Sym.Palette, null) },
                     headline = { Text("Dynamic color") },
                     supporting = { Text("Use colors from your wallpaper") },
                     trailing = { Switch(dynamic, onCheckedChange = { st.setDynamicColor(it) }) })
             }
             GroupItem(dynCount - 1, dynCount,
-                leading = { Icon(Icons.Default.Terminal, null) },
+                leading = { Icon(Sym.Terminal, null) },
                 headline = { Text("Terminal colors") },
                 supporting = {
                     Column {
@@ -221,7 +198,7 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             val renderer by st.renderer.collectAsState()
             val fitToPhone by st.fitToPhone.collectAsState()
             GroupItem(0, 5,
-                leading = { Icon(Icons.Default.Terminal, null) },
+                leading = { Icon(Sym.Terminal, null) },
                 headline = { Text("Renderer") },
                 supporting = {
                     Column {
@@ -235,28 +212,26 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     }
                 })
             GroupItem(1, 5,
-                leading = { Icon(Icons.Default.PhoneAndroid, null) },
+                leading = { Icon(Sym.PhoneAndroid, null) },
                 headline = { Text("Fit panes to phone") },
                 supporting = { Text("Resize a pane to this screen while you have it open. The Mac shows it at the phone's size until you leave.") },
                 trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
-            FlagItem(2, 5, st.messageBox, Icons.Default.Edit, "Message box",
+            FlagItem(2, 5, st.messageBox, Sym.Edit, "Message box",
                 "Write in a text box with autocorrect and dictation, then send. Off: type straight into the terminal.")
-            FlagItem(3, 5, st.programClipboard, Icons.Default.ContentCopy, "Programs can copy",
+            FlagItem(3, 5, st.programClipboard, Sym.ContentCopy, "Programs can copy",
                 "When a program in the open pane copies text (Neovim, tmux), put it on this phone's clipboard")
-            FlagItem(4, 5, st.bellVibrate, Icons.Default.Vibration, "Vibrate on bell",
+            FlagItem(4, 5, st.bellVibrate, Sym.Vibration, "Vibrate on bell",
                 "A short buzz when a program in the open pane rings the bell")
 
             SectionHeader("Coding agents")
-            FlagItem(0, 3, st.board, Icons.Default.Inbox, "Needs you board",
-                "Group agents on Home by what they need: waiting on you, failed, finished, working")
-            FlagItem(1, 3, st.answerButtons, Icons.Default.TouchApp, "Answer buttons",
+            FlagItem(0, 2, st.answerButtons, Sym.TouchApp, "Answer buttons",
                 "Show Claude Code's permission and question choices as buttons in the pane and in notifications")
-            FlagItem(2, 3, st.claudeBar, Icons.Default.Tune, "Claude Code controls",
+            FlagItem(1, 2, st.claudeBar, Sym.Tune, "Claude Code controls",
                 "A strip above the keys in panes running Claude Code: permission mode, effort and slash commands")
 
             SectionHeader("About")
             GroupItem(0, 1,
-                leading = { Icon(Icons.Default.Info, null) },
+                leading = { Icon(Sym.Info, null) },
                 headline = { Text("Rhubarb ${BuildConfig.VERSION_NAME}") },
                 supporting = {
                     Text(

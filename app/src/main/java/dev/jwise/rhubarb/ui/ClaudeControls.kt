@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -83,7 +78,7 @@ fun ClaudeStrip(screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (Str
     ) {
         if (screen?.working == true) AssistChip(
             onClick = { onKeys("\u001b") }, label = { Text("Stop") },
-            leadingIcon = { Icon(Icons.Default.Stop, null, Modifier.size(AssistChipDefaults.IconSize)) },
+            leadingIcon = { Icon(Sym.Stop, null, Modifier.size(AssistChipDefaults.IconSize)) },
             shape = CircleShape, border = null,
             colors = AssistChipDefaults.assistChipColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer, labelColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -93,20 +88,20 @@ fun ClaudeStrip(screen: ClaudeScreen?, onKeys: (String) -> Unit, onCommand: (Str
             onClick = { onKeys("\u001b[Z") },
             label = { Text(screen?.mode?.let { modeName(it) } ?: "Mode") },
             shape = CircleShape, border = null, colors = tonalChip(),
-            leadingIcon = { Icon(Icons.Default.Shield, "Permission mode, tap for the next", Modifier.size(AssistChipDefaults.IconSize)) },
+            leadingIcon = { Icon(Sym.Shield, "Permission mode, tap for the next", Modifier.size(AssistChipDefaults.IconSize)) },
         )
         Box {
             AssistChip(
                 onClick = { effortMenu = true },
                 label = { Text(screen?.effort?.let { "Effort: $it" } ?: "Effort") },
                 shape = CircleShape, border = null, colors = tonalChip(),
-                leadingIcon = { Icon(Icons.Default.Speed, null, Modifier.size(AssistChipDefaults.IconSize)) },
+                leadingIcon = { Icon(Sym.Speed, null, Modifier.size(AssistChipDefaults.IconSize)) },
             )
             DropdownMenu(expanded = effortMenu, onDismissRequest = { effortMenu = false }) {
                 ClaudeScreenReader.EFFORT_LEVELS.forEach { level ->
                     DropdownMenuItem(
                         text = { Text(level) },
-                        trailingIcon = { if (level == screen?.effort) Icon(Icons.Default.Check, "Current") },
+                        trailingIcon = { if (level == screen?.effort) Icon(Sym.Check, "Current") },
                         onClick = { effortMenu = false; onCommand("/effort $level") },
                     )
                 }

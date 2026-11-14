@@ -17,14 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.SaveAlt
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -131,9 +123,9 @@ fun DownloadSheet(h: RexHub, sessionId: String, blockId: String, startPath: Stri
                     Text(done.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(formatSize(done.file.length()), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { save.launch(done.name) }) { Icon(Icons.Default.SaveAlt, null); Text("  Save") }
-                        OutlinedButton(onClick = { openFile(ctx, done, mime) }) { Icon(Icons.Default.OpenInNew, null); Text("  Open") }
-                        OutlinedButton(onClick = { shareFile(ctx, done, mime) }) { Icon(Icons.Default.Share, null); Text("  Share") }
+                        Button(onClick = { save.launch(done.name) }) { Icon(Sym.SaveAlt, null); Text("  Save") }
+                        OutlinedButton(onClick = { openFile(ctx, done, mime) }) { Icon(Sym.OpenInNew, null); Text("  Open") }
+                        OutlinedButton(onClick = { shareFile(ctx, done, mime) }) { Icon(Sym.Share, null); Text("  Share") }
                     }
                     TextButton(onClick = { got = null }) { Text("Download another") }
                 }
@@ -158,9 +150,9 @@ fun DownloadSheet(h: RexHub, sessionId: String, blockId: String, startPath: Stri
             )
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { listing?.path?.let { p -> path = p.trimEnd('/').substringBeforeLast('/', "/").ifEmpty { "/" } } }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Up a folder")
+                    Icon(Sym.ArrowBack, "Up a folder")
                 }
-                IconButton(onClick = { path = "~" }) { Icon(Icons.Default.Home, "Home folder") }
+                IconButton(onClick = { path = "~" }) { Icon(Sym.Home, "Home folder") }
                 FilterChip(selected = showHidden, onClick = { showHidden = !showHidden }, label = { Text("Hidden files") })
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) }
@@ -173,14 +165,14 @@ fun DownloadSheet(h: RexHub, sessionId: String, blockId: String, startPath: Stri
                     items(dirs, key = { "d:$it" }) { d ->
                         ListItem(
                             headlineContent = { Text(d, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingContent = { Icon(Icons.Default.Folder, null) },
+                            leadingContent = { Icon(Sym.Folder, null) },
                             modifier = Modifier.clickable { path = l.path.trimEnd('/') + "/" + d },
                         )
                     }
                     items(files, key = { "f:$it" }) { f ->
                         ListItem(
                             headlineContent = { Text(f, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingContent = { Icon(Icons.AutoMirrored.Filled.InsertDriveFile, null) },
+                            leadingContent = { Icon(Sym.InsertDriveFile, null) },
                             modifier = Modifier.clickable { download(l.path.trimEnd('/') + "/" + f) },
                         )
                     }

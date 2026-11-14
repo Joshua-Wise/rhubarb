@@ -11,10 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -111,7 +107,7 @@ fun GhosttyPane(
                         val n = snap.codepoints.size
                         if (n > 0) selection = TerminalSelection(0, n - 1)
                     }) {
-                        Icon(Icons.Filled.SelectAll, null, Modifier.padding(end = 6.dp)); Text("All")
+                        Icon(Sym.SelectAll, null, Modifier.padding(end = 6.dp)); Text("All")
                     }
                     FilledTonalButton(
                         onClick = {
@@ -124,7 +120,7 @@ fun GhosttyPane(
                         },
                         contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                     ) {
-                        Icon(Icons.Filled.ContentCopy, null, Modifier.padding(end = 6.dp)); Text("Copy")
+                        Icon(Sym.ContentCopy, null, Modifier.padding(end = 6.dp)); Text("Copy")
                     }
                     TextButton(onClick = { selection = null }) { Text("Cancel") }
                 }
@@ -156,7 +152,7 @@ private fun LinkSheet(url: String, onDismiss: () -> Unit) {
     val target = if (url.startsWith("www.")) "https://$url" else url
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Filled.Link, null) },
+        icon = { Icon(Sym.Link, null) },
         title = { Text("Link") },
         text = { Text(url, style = MaterialTheme.typography.bodyMedium, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) },
         confirmButton = {

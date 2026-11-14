@@ -12,19 +12,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.automirrored.filled.KeyboardTab
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EditOff
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
@@ -164,7 +151,7 @@ fun KeyBar(
                     ModChip("Shift", mods.shift) { mods.shift = mods.cycle(mods.shift) }
                     ModChip("Alt", mods.alt) { mods.alt = mods.cycle(mods.alt) }
                     AssistChip(onClick = { onKey(KeyMods.NEW_LINE) }, label = { Text("New line") },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.KeyboardReturn, null, Modifier.size(18.dp)) })
+                        leadingIcon = { Icon(Sym.KeyboardReturn, null, Modifier.size(18.dp)) })
                     val keys = listOf(
                         "^C" to "\u0003", "^D" to "\u0004", "⇧Tab" to "$ESC[Z", "1" to "1", "2" to "2", "3" to "3",
                         "y" to "y", "n" to "n", "PgUp" to "$ESC[5~", "PgDn" to "$ESC[6~", "Home" to "$ESC[H", "End" to "$ESC[F",
@@ -174,11 +161,11 @@ fun KeyBar(
                         AssistChip(onClick = { onKey(seq) }, label = { Text(label, fontFamily = FontFamily.Monospace) })
                     }
                     AssistChip(onClick = onPaste, label = { Text("Paste") },
-                        leadingIcon = { Icon(Icons.Default.ContentPaste, null, Modifier.size(18.dp)) })
+                        leadingIcon = { Icon(Sym.ContentPaste, null, Modifier.size(18.dp)) })
                     AssistChip(onClick = { onKeyboard(); more = false }, label = { Text("Keyboard") },
-                        leadingIcon = { Icon(Icons.Default.Keyboard, null, Modifier.size(18.dp)) })
+                        leadingIcon = { Icon(Sym.Keyboard, null, Modifier.size(18.dp)) })
                     AssistChip(onClick = { onCompose(); more = false }, label = { Text(if (compose) "Close compose" else "Compose") },
-                        leadingIcon = { Icon(if (compose) Icons.Default.EditOff else Icons.Default.Edit, null, Modifier.size(18.dp)) })
+                        leadingIcon = { Icon(if (compose) Sym.EditOff else Sym.Edit, null, Modifier.size(18.dp)) })
                 }
             }
         }
@@ -190,14 +177,14 @@ fun KeyBar(
                 Text("esc", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
             CtrlKey(mods, onKey)
-            Key(Icons.AutoMirrored.Filled.KeyboardTab, "Tab") { onKey("\t") }
-            RepeatKey(Icons.Default.KeyboardArrowLeft, "Left") { onKey("$ESC[D") }
-            RepeatKey(Icons.Default.KeyboardArrowUp, "Up") { onKey("$ESC[A") }
-            RepeatKey(Icons.Default.KeyboardArrowDown, "Down") { onKey("$ESC[B") }
-            RepeatKey(Icons.Default.KeyboardArrowRight, "Right") { onKey("$ESC[C") }
-            HoldKey(Icons.AutoMirrored.Filled.KeyboardReturn, "Enter (hold for new line)",
+            Key(Sym.KeyboardTab, "Tab") { onKey("\t") }
+            RepeatKey(Sym.KeyboardArrowLeft, "Left") { onKey("$ESC[D") }
+            RepeatKey(Sym.KeyboardArrowUp, "Up") { onKey("$ESC[A") }
+            RepeatKey(Sym.KeyboardArrowDown, "Down") { onKey("$ESC[B") }
+            RepeatKey(Sym.KeyboardArrowRight, "Right") { onKey("$ESC[C") }
+            HoldKey(Sym.KeyboardReturn, "Enter (hold for new line)",
                 onClick = { onKey("\r") }, onLongClick = { onKey(KeyMods.NEW_LINE) })
-            Key(if (more) Icons.Default.Close else Icons.Default.MoreHoriz, if (more) "Fewer keys" else "More keys") { more = !more }
+            Key(if (more) Sym.Close else Sym.MoreHoriz, if (more) "Fewer keys" else "More keys") { more = !more }
         }
     }
 }
@@ -285,7 +272,8 @@ private fun HoldKey(icon: ImageVector, label: String, onClick: () -> Unit, onLon
     ) { Icon(icon, contentDescription = label) }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Key(icon: ImageVector, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) { Icon(icon, contentDescription = label) }
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp), shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(icon, contentDescription = label) }
 }

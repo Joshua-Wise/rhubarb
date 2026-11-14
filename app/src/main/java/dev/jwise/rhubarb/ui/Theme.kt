@@ -4,18 +4,6 @@ import dev.jwise.rhubarb.R
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.EditNote
-import androidx.compose.material.icons.filled.Javascript
-import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -129,7 +117,7 @@ data class Program(
 )
 
 private val brandBlack = Color(0xFF1F2328)
-private fun brand(name: String, res: Int, color: Color) = Program(name, Icons.Default.SmartToy, agent = true, drawable = res, brandColor = color)
+private fun brand(name: String, res: Int, color: Color) = Program(name, Sym.SmartToy, agent = true, drawable = res, brandColor = color)
 
 /**
  * What's running in a terminal, from the status a program reports (e.g. claude-code) or its
@@ -142,7 +130,7 @@ fun programOf(l: BlockLive?): Program {
     val path = l?.processPath?.lowercase().orEmpty()
     fun has(vararg k: String) = k.any { app == it || name == it || path.contains("/$it/") || path.endsWith("/$it") }
     return when {
-        has("claude-code", "claude") -> Program("Claude Code", Icons.Default.AutoAwesome, agent = true,
+        has("claude-code", "claude") -> Program("Claude Code", Sym.AutoAwesome, agent = true,
             drawable = R.drawable.ic_claude, brandColor = Color(0xFFD97757))
         has("gemini") -> brand("Gemini CLI", R.drawable.ic_gemini, Color(0xFF8E75B2))
         has("copilot") -> brand("Copilot CLI", R.drawable.ic_copilot, brandBlack)
@@ -151,18 +139,18 @@ fun programOf(l: BlockLive?): Program {
         has("qwen") -> brand("Qwen Code", R.drawable.ic_qwen, Color(0xFF6950EF))
         has("vibe", "mistral") -> brand("Mistral Vibe", R.drawable.ic_mistral, Color(0xFFFA520F))
         has("ollama") -> brand("Ollama", R.drawable.ic_ollama, brandBlack)
-        has("pi") -> Program("Pi", Icons.Default.SmartToy, agent = true, glyph = "π")
+        has("pi") -> Program("Pi", Sym.SmartToy, agent = true, glyph = "π")
         has("codex") -> brand("Codex", R.drawable.ic_codex, Color(0xFF5468FF))
-        has("aider", "goose", "crush", "amp", "kiro-cli", "droid", "kimi") -> Program(app ?: name, Icons.Default.SmartToy, agent = true)
-        has("vim", "nvim", "vi", "hx", "helix", "nano", "emacs", "micro") -> Program(name, Icons.Default.EditNote)
-        has("ssh", "mosh", "mosh-client", "et") -> Program(name, Icons.Default.Lan)
-        has("git", "lazygit", "tig", "gitui") -> Program(name, Icons.Default.AccountTree)
-        has("node", "npm", "npx", "pnpm", "yarn", "bun", "deno") -> Program(name, Icons.Default.Javascript)
-        has("python", "python3", "ipython", "uv", "go", "cargo", "rustc", "make") -> Program(name, Icons.Default.Code)
-        has("htop", "btop", "top", "glances") -> Program(name, Icons.Default.Speed)
-        has("docker", "kubectl", "k9s", "podman") -> Program(name, Icons.Default.ViewInAr)
-        has("less", "more", "man", "bat") -> Program(name, Icons.Default.Description)
-        else -> Program(name.ifBlank { "shell" }, Icons.Default.Terminal)
+        has("aider", "goose", "crush", "amp", "kiro-cli", "droid", "kimi") -> Program(app ?: name, Sym.SmartToy, agent = true)
+        has("vim", "nvim", "vi", "hx", "helix", "nano", "emacs", "micro") -> Program(name, Sym.EditNote)
+        has("ssh", "mosh", "mosh-client", "et") -> Program(name, Sym.Lan)
+        has("git", "lazygit", "tig", "gitui") -> Program(name, Sym.AccountTree)
+        has("node", "npm", "npx", "pnpm", "yarn", "bun", "deno") -> Program(name, Sym.Javascript)
+        has("python", "python3", "ipython", "uv", "go", "cargo", "rustc", "make") -> Program(name, Sym.Code)
+        has("htop", "btop", "top", "glances") -> Program(name, Sym.Speed)
+        has("docker", "kubectl", "k9s", "podman") -> Program(name, Sym.ViewInAr)
+        has("less", "more", "man", "bat") -> Program(name, Sym.Description)
+        else -> Program(name.ifBlank { "shell" }, Sym.Terminal)
     }
 }
 

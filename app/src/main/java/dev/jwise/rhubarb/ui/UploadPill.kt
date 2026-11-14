@@ -4,10 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,17 +41,17 @@ fun UploadPill(p: RexUpload.Progress, modifier: Modifier = Modifier, onCancel: (
                     )
                 }
                 RexUpload.Progress.Done -> {
-                    Icon(Icons.Default.CheckCircle, null, Modifier.size(18.dp))
+                    Icon(Sym.CheckCircle, null, Modifier.size(18.dp))
                     Text("Sent", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(end = 10.dp, top = 10.dp, bottom = 10.dp))
                 }
                 is RexUpload.Progress.Failed -> {
-                    Icon(Icons.Default.ErrorOutline, null, Modifier.size(18.dp))
+                    Icon(Sym.ErrorOutline, null, Modifier.size(18.dp))
                     Text(p.message, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
                 }
             }
             if (p != RexUpload.Progress.Done) {
                 IconButton(onClick = onCancel, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Close, if (p is RexUpload.Progress.Failed) "Dismiss" else "Cancel", Modifier.size(18.dp))
+                    Icon(Sym.Close, if (p is RexUpload.Progress.Failed) "Dismiss" else "Cancel", Modifier.size(18.dp))
                 }
             }
         }

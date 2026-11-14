@@ -107,8 +107,9 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
 
     // Material's shared-axis motion: forward slides in from the right, back reverses it. The back
     // gesture scrubs through the same animation (predictive back).
-    val ease = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-    val fade = androidx.compose.animation.core.tween<Float>(250)
+    // Springs from the theme's Expressive motion scheme, so screens move like the components do.
+    val ease = androidx.compose.material3.MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+    val fade = androidx.compose.material3.MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     NavHost(
         nav, startDestination = if (hasServer) "home" else "server",
         enterTransition = { androidx.compose.animation.slideInHorizontally(ease) { it / 6 } + androidx.compose.animation.fadeIn(fade) },

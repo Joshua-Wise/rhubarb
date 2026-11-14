@@ -12,5 +12,8 @@ This product includes material from chompy by Jeff Arese
     out Claude Code's first ~600 ms. Rhubarb's code is its own, smaller implementation.
   - The design of the message box, the Claude Code controls strip and the "Needs you" board.
 
+Icons are Google's Material Symbols (https://github.com/google/material-design-icons, Apache 2.0),
+generated into app/src/main/java/dev/jwise/rhubarb/ui/Symbols.kt.
+
 The terminal renderer is adapted from chuchu (https://github.com/jossephus/chuchu, MIT) and uses
 Ghostty's terminal engine (MIT). The QR scanner is ZXing and zxing-android-embedded (Apache 2.0).

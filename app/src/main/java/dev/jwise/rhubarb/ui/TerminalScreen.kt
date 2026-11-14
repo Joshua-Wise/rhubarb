@@ -8,7 +8,6 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import dev.jwise.rhubarb.rex.RexUpload
 import kotlinx.coroutines.Job
 import android.webkit.JavascriptInterface
@@ -25,31 +24,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EditOff
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.VerticalAlignBottom
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -118,7 +95,7 @@ private class Bridge(
 
 
 @SuppressLint("SetJavaScriptEnabled")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     val app = RexApp.instance
@@ -476,7 +453,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     containerColor = termBg, scrolledContainerColor = termBg, titleContentColor = termFg,
                     navigationIconContentColor = termFg, actionIconContentColor = termFg,
                 ),
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Sym.ArrowBack, "Back") } },
                 title = {
                     Column {
                         val paneLabel = window?.blocks?.takeIf { it.size > 1 }?.firstOrNull { it.blockId == blockId }?.label
@@ -497,11 +474,11 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomOut, "Smaller") }
-                    if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Icons.Default.ZoomIn, "Larger") }
+                    if (!owned) IconButton(onClick = { zoom = (zoom / 1.15f).coerceAtLeast(0.5f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Sym.ZoomOut, "Smaller") }
+                    if (!owned) IconButton(onClick = { zoom = (zoom * 1.15f).coerceAtMost(4f); if (!useGhostty) js("rex.zoom($zoom)") }) { Icon(Sym.ZoomIn, "Larger") }
                     var paneMenu by remember { mutableStateOf(false) }
                     androidx.compose.foundation.layout.Box {
-                        IconButton(onClick = { paneMenu = true }) { Icon(Icons.Default.MoreVert, "More") }
+                        IconButton(onClick = { paneMenu = true }) { Icon(Sym.MoreVert, "More") }
                         DropdownMenu(expanded = paneMenu, onDismissRequest = { paneMenu = false }) {
                             fun run(what: String, op: suspend () -> Unit) {
                                 paneMenu = false
@@ -511,18 +488,18 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                                     }
                                 }
                             }
-                            if (useGhostty) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Icons.Default.Search, null) },
+                            if (useGhostty) DropdownMenuItem(text = { Text("Find") }, leadingIcon = { Icon(Sym.Search, null) },
                                 onClick = { paneMenu = false; compose = false; finding = true })
-                            DropdownMenuItem(text = { Text("Send an image") }, leadingIcon = { Icon(Icons.Default.AddPhotoAlternate, null) },
+                            DropdownMenuItem(text = { Text("Send an image") }, leadingIcon = { Icon(Sym.AddPhotoAlternate, null) },
                                 onClick = { paneMenu = false; pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                             if (h.control.apiRevision >= dev.jwise.rhubarb.rex.RexDownload.MIN_REVISION)
-                                DropdownMenuItem(text = { Text("Download a file") }, leadingIcon = { Icon(Icons.Default.Download, null) },
+                                DropdownMenuItem(text = { Text("Download a file") }, leadingIcon = { Icon(Sym.Download, null) },
                                     onClick = { paneMenu = false; downloading = true })
-                            DropdownMenuItem(text = { Text("Share output") }, leadingIcon = { Icon(Icons.Default.Share, null) },
+                            DropdownMenuItem(text = { Text("Share output") }, leadingIcon = { Icon(Sym.Share, null) },
                                 onClick = { run("share it") { sharePaneText(ctx, h, sessionId, blockId, window?.label ?: "Terminal") } })
-                            DropdownMenuItem(text = { Text("Clear screen") }, leadingIcon = { Icon(Icons.Default.ClearAll, null) },
+                            DropdownMenuItem(text = { Text("Clear screen") }, leadingIcon = { Icon(Sym.ClearAll, null) },
                                 onClick = { run("clear it") { h.clearPane(sessionId, blockId) } })
-                            DropdownMenuItem(text = { Text("Reset terminal") }, leadingIcon = { Icon(Icons.Default.RestartAlt, null) },
+                            DropdownMenuItem(text = { Text("Reset terminal") }, leadingIcon = { Icon(Sym.RestartAlt, null) },
                                 onClick = { run("reset it") { h.resetPane(sessionId, blockId) } })
                         }
                     }
@@ -565,12 +542,12 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 val snap by ghostty.snapshot.collectAsState()
                 androidx.compose.animation.AnimatedVisibility(
                     visible = useGhostty && snap?.viewportAtBottom == false,
-                    enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
+                    enter = androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()) + androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
+                    exit = androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()) + androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
                     modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 ) {
                     androidx.compose.material3.SmallFloatingActionButton(onClick = { jumpToLive() }) {
-                        Icon(Icons.Default.ArrowDownward, "Jump to latest")
+                        Icon(Sym.ArrowDownward, "Jump to latest")
                     }
                 }
             }
@@ -621,32 +598,32 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                     ),
                     leadingIcon = {
                         androidx.compose.foundation.layout.Box {
-                            IconButton(onClick = { attachMenu = true }) { Icon(Icons.Default.Add, "Attach") }
+                            IconButton(onClick = { attachMenu = true }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(Sym.Add, "Attach") }
                             DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
-                                DropdownMenuItem(text = { Text("Photo") }, leadingIcon = { Icon(Icons.Default.AddPhotoAlternate, null) },
+                                DropdownMenuItem(text = { Text("Photo") }, leadingIcon = { Icon(Sym.AddPhotoAlternate, null) },
                                     onClick = { attachMenu = false; pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
-                                DropdownMenuItem(text = { Text("File") }, leadingIcon = { Icon(Icons.Default.AttachFile, null) },
+                                DropdownMenuItem(text = { Text("File") }, leadingIcon = { Icon(Sym.AttachFile, null) },
                                     onClick = { attachMenu = false; pickFiles.launch(arrayOf("*/*")) })
                             }
                         }
                     },
                     trailingIcon = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = ::sendMessage) {
+                            IconButton(onClick = ::sendMessage, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
                                 when {
-                                    input.isNotEmpty() -> Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = MaterialTheme.colorScheme.primary)
-                                    stop -> Icon(Icons.Default.Stop, "Stop", tint = MaterialTheme.colorScheme.error)
-                                    else -> Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Press Enter")
+                                    input.isNotEmpty() -> Icon(Sym.Send, "Send", tint = MaterialTheme.colorScheme.primary)
+                                    stop -> Icon(Sym.Stop, "Stop", tint = MaterialTheme.colorScheme.error)
+                                    else -> Icon(Sym.KeyboardReturn, "Press Enter")
                                 }
                             }
-                            IconButton(onClick = {
+                            IconButton(shapes = androidx.compose.material3.IconButtonDefaults.shapes(), onClick = {
                                 val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                                     .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                                     .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, if (isClaude) "Message Claude" else "Message")
                                 try { dictate.launch(i) } catch (e: android.content.ActivityNotFoundException) {
                                     android.widget.Toast.makeText(ctx, "No speech recognizer on this phone", android.widget.Toast.LENGTH_SHORT).show()
                                 }
-                            }) { Icon(Icons.Default.Mic, "Dictate") }
+                            }) { Icon(Sym.Mic, "Dictate") }
                         }
                     },
                     // Agents get sentences; shells get commands, which shouldn't start with a capital.

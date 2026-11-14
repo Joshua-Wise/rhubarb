@@ -17,13 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -128,7 +121,7 @@ fun NewSheet(
             ) {
                 ListItem(
                     colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                    leadingContent = { Icon(Icons.Default.FolderOpen, null) },
+                    leadingContent = { Icon(Sym.FolderOpen, null) },
                     overlineContent = { Text("Start in") },
                     headlineContent = { Text(pretty(cwd), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     trailingContent = { if (browse != null) Text("Change", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) },
@@ -142,7 +135,7 @@ fun NewSheet(
                         label = { Text(s.label) },
                         leadingIcon = {
                             if (s.icon != null) Icon(painterResource(s.icon), null, Modifier.size(18.dp))
-                            else Icon(Icons.Default.Terminal, null, Modifier.size(18.dp))
+                            else Icon(Sym.Terminal, null, Modifier.size(18.dp))
                         },
                     )
                 }
@@ -178,7 +171,7 @@ private fun FolderBrowser(
             .onFailure { error = it.message ?: "Couldn't list that folder" }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+        IconButton(onClick = onBack) { Icon(Sym.ArrowBack, "Back") }
         Column(Modifier.weight(1f)) {
             Text("Choose a folder", style = MaterialTheme.typography.titleLarge)
             Text(pretty(path), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -186,9 +179,9 @@ private fun FolderBrowser(
         }
     }
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { path = "~" }) { Icon(Icons.Default.Home, "Home folder") }
+        IconButton(onClick = { path = "~" }) { Icon(Sym.Home, "Home folder") }
         IconButton(onClick = { if (path != "/") path = path.trimEnd('/').substringBeforeLast('/').ifEmpty { "/" } }) {
-            Icon(Icons.Default.ArrowUpward, "Up one folder")
+            Icon(Sym.ArrowUpward, "Up one folder")
         }
         Spacer(Modifier.weight(1f))
         Text("Hidden", style = MaterialTheme.typography.labelLarge)
@@ -204,7 +197,7 @@ private fun FolderBrowser(
             else -> items(shown, key = { it }) { d ->
                 ListItem(
                     modifier = Modifier.clickable { path = path.trimEnd('/') + "/" + d },
-                    leadingContent = { Icon(Icons.Default.Folder, null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingContent = { Icon(Sym.Folder, null, tint = MaterialTheme.colorScheme.primary) },
                     headlineContent = { Text(d, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 )
             }
