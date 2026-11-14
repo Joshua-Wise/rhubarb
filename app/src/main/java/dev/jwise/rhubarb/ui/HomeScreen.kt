@@ -155,6 +155,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val topScroll = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     // The "Needs you" board: what each agent needs, grouped. Finished and failed work stays until
     // its pane is opened or its card cleared.
@@ -199,27 +200,30 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Scaffold(
         topBar = {
-            // The server (tap to switch) and its connection state.
-            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)) {
-                val (dot, text) = when (conn) {
-                    is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
-                    is ConnState.Connecting -> "working" to "Connecting…"
-                    is ConnState.Failed -> "error" to "Offline · ${(conn as ConnState.Failed).reason}"
-                    ConnState.Idle -> null to "Idle"
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clip(MaterialTheme.shapes.medium).clickable { showHosts = true }.padding(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Sym.ArrowDropDown, "Switch host")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)) {
-                    StatusDot(dot); Spacer(Modifier.width(6.dp))
-                    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            // The server's name, large, collapsing into a slim bar on scroll (as in Settings).
+            // Tap it to switch hosts. The subtitle is the connection state.
+            val (dot, text) = when (conn) {
+                is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
+                is ConnState.Connecting -> "working" to "Connecting…"
+                is ConnState.Failed -> "error" to "Offline · ${(conn as ConnState.Failed).reason}"
+                ConnState.Idle -> null to "Idle"
             }
+            androidx.compose.material3.LargeFlexibleTopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clip(MaterialTheme.shapes.medium).clickable { showHosts = true }) {
+                        Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        Icon(Sym.ArrowDropDown, "Switch host")
+                    }
+                },
+                subtitle = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StatusDot(dot); Spacer(Modifier.width(6.dp))
+                        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                scrollBehavior = topScroll,
+            )
         },
         // A docked bottom bar (M3): Settings, Needs you, New session in the middle, Hosts, Search.
         bottomBar = {
@@ -249,7 +253,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             onRefresh = { scope.launch { refreshing = true; hub?.refreshAll(); refreshing = false } },
             modifier = Modifier.padding(pad).fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)) {
+            LazyColumn(Modifier.fillMaxSize().nestedScroll(topScroll.nestedScrollConnection), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)) {
                 // A fixed first row: rows that appear above the sessions later (the board) then show
                 // instead of landing above the top of a list that hasn't been scrolled.
                 item(key = "top") { Spacer(Modifier.height(1.dp)) }
