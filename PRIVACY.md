@@ -34,6 +34,8 @@ That server is yours. What happens to the data there is up to you and Rex's own 
 
 When you turn on alerts, Rhubarb keeps a connection to your Rex server in the background and shows notifications when a session needs your attention. These notifications are created on your device from what your server reports. They don't go through Google's push service or any other third party.
 
+While an agent works, Rhubarb can show a silent notification with its progress, which Android 16 also shows as a chip in the status bar. It's built the same way, on your device, and you can turn it off in Settings.
+
 ## Clipboard
 
 When a program in the pane you have open copies text (for example Neovim or tmux, using OSC 52), Rhubarb puts that text on your phone's clipboard. This happens only while that pane is open and Rhubarb is on screen, and you can turn it off in Settings. Rhubarb reads your clipboard only when you tap Paste.
@@ -49,6 +51,7 @@ When you share text or images from another app to Rhubarb, it sends them only to
 - **Internet and network state:** to connect to your Rex server.
 - **Notifications:** to alert you when a session needs your attention.
 - **Foreground service:** to keep the connection to your server open in the background while alerts are on.
+- **Live progress notifications:** to show a working agent's progress as a status-bar chip on Android 16 and later.
 - **Dictation:** the message box's mic button hands off to your phone's own speech-to-text, which records and turns your words into text. Rhubarb never records audio and has no microphone permission; it only receives the text, which goes into the box for you to review.
 - **Camera:** only when you tap **Scan QR code** to add a server, and only if you allow it. The camera image is read on your device to find the code and is never saved or sent anywhere.
 
