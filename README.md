@@ -11,7 +11,7 @@ unofficial client built on the API that every Rex server documents about itself 
 
 | Home | Claude Code | Codex | New session |
 | :---: | :---: | :---: | :---: |
-| <img src="store/screenshots/1-home.png" alt="Home: the Needs you board with Claude Code's permission prompt as buttons, finished and working agents, and the bottom bar" width="200"> | <img src="store/screenshots/2-terminal.png" alt="A Claude Code pane: its permission prompt as answer buttons, the controls strip, key bar and message box" width="200"> | <img src="store/screenshots/3-codex.png" alt="A Codex pane with its own controls strip: mode, model and commands" width="200"> | <img src="store/screenshots/4-new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> |
+| <img src="store/screenshots/home.png" alt="Home: the Needs you board with Claude Code's permission prompt as buttons, finished and working agents, and the bottom bar" width="200"> | <img src="store/screenshots/claude-code.png" alt="A Claude Code pane: its permission prompt as answer buttons, the controls strip, key bar and message box" width="200"> | <img src="store/screenshots/codex.png" alt="A Codex pane with its own controls strip: mode, model and commands" width="200"> | <img src="store/screenshots/new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> |
 
 ## Get it
 
