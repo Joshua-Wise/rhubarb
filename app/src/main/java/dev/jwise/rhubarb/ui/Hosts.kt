@@ -31,9 +31,10 @@ fun rememberKnownHosts(): List<Pair<String, String>> {
     val hub by app.hub.collectAsState()
     val saved by app.settings.savedHosts.collectAsState()
     val label by app.settings.hostLabel.collectAsState()
+    val hidden by app.settings.hiddenHosts.collectAsState()
     var fromServer by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     LaunchedEffect(hub) { fromServer = hub?.hosts() ?: emptyList() }
-    return remember(saved, label, fromServer, app.serverUrl) { app.knownHosts(fromServer) }
+    return remember(saved, label, hidden, fromServer, app.serverUrl) { app.knownHosts(fromServer) }
 }
 
 fun isCurrentHost(url: String) = RexApp.instance.serverUrl?.let { Settings.hostKey(it) == Settings.hostKey(url) } == true

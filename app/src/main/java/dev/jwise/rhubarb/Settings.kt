@@ -57,13 +57,24 @@ class Settings(private val ctx: Context) {
     val savedHosts: StateFlow<List<Pair<String, String>>> = _savedHosts
     fun rememberHost(label: String, url: String) {
         val key = hostKey(url)
+        if (key in _hiddenHosts.value) {
+            val hidden = _hiddenHosts.value - key
+            p.edit().putStringSet("hidden_hosts", hidden).apply(); _hiddenHosts.value = hidden
+        }
         val list = _savedHosts.value.filter { hostKey(it.second) != key } + (label to url)
         p.edit().putString("hosts", encodeHosts(list)).apply(); _savedHosts.value = list
     }
+    /** Forget a host: drop it from this phone's list, and hide it if the server's own list has it. */
     fun forgetHost(url: String) {
         val list = _savedHosts.value.filter { hostKey(it.second) != hostKey(url) }
-        p.edit().putString("hosts", encodeHosts(list)).apply(); _savedHosts.value = list
+        val hidden = _hiddenHosts.value + hostKey(url)
+        p.edit().putString("hosts", encodeHosts(list)).putStringSet("hidden_hosts", hidden).apply()
+        _savedHosts.value = list; _hiddenHosts.value = hidden
     }
+
+    private val _hiddenHosts = flow(p.getStringSet("hidden_hosts", emptySet())!!.toSet())
+    /** Hosts (by [hostKey]) the user forgot, kept out of the server-provided list too. */
+    val hiddenHosts: StateFlow<Set<String>> = _hiddenHosts
 
     private val _renderer = flow(runCatching { Renderer.valueOf(p.getString("renderer", "Ghostty")!!) }.getOrDefault(Renderer.Ghostty))
     /** Which terminal engine draws panes: Ghostty (native) or xterm.js (WebView). */

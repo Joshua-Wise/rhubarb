@@ -97,11 +97,26 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             val hosts = rememberKnownHosts()
             hosts.forEachIndexed { i, (label, url) ->
                 val current = isCurrentHost(url)
-                val saved = st.savedHosts.value.any { dev.jwise.rhubarb.Settings.hostKey(it.second) == dev.jwise.rhubarb.Settings.hostKey(url) }
+                // Swipe a saved host left to forget it (asks first), like closing a tab on Home.
+                val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState()
+                androidx.compose.runtime.LaunchedEffect(swipe.currentValue) {
+                    if (swipe.currentValue == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) forgetting = label to url
+                }
+                // Slide the row back once the confirmation closes (Cancel, or it was forgotten).
+                androidx.compose.runtime.LaunchedEffect(forgetting) {
+                    if (forgetting == null && swipe.currentValue != androidx.compose.material3.SwipeToDismissBoxValue.Settled) swipe.reset()
+                }
+                androidx.compose.material3.SwipeToDismissBox(
+                    state = swipe, enableDismissFromStartToEnd = false, gesturesEnabled = !current,
+                    backgroundContent = {
+                        if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
+                            SwipeBackground(Sym.DeleteForever, "Forget", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                    },
+                ) {
                 GroupItem(i, hosts.size,
                     onClick = { if (!current) app.switchServer(url, label) },
                     // Hold a saved host (not the one in use) to forget it.
-                    onLongClick = if (saved && !current) ({ forgetting = label to url }) else null,
+                    onLongClick = if (!current) ({ forgetting = label to url }) else null,
                     leading = {
                         if (current) Icon(Sym.CheckCircleFilled, "Connected", tint = MaterialTheme.colorScheme.primary)
                         else Icon(Sym.Dns, null)
@@ -110,9 +125,10 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
                     supporting = {
                         Text(displayAddress(url), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     })
+                }
             }
             if (hosts.any { (_, u) -> !isCurrentHost(u) }) {
-                Text("Hold a host to forget it", style = MaterialTheme.typography.bodySmall,
+                Text("Swipe a host left to forget it", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 32.dp, top = 6.dp))
             }
 

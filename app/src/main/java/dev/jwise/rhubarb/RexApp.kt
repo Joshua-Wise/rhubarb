@@ -71,7 +71,9 @@ class RexApp : Application() {
     /** Known hosts: ones this phone has used, plus the connected server's own hosts list. */
     fun knownHosts(fromServer: List<Pair<String, String>>): List<Pair<String, String>> {
         val cur = serverUrl?.let { (settings.hostLabel.value ?: defaultHostLabel()) to it }
-        return (listOfNotNull(cur) + settings.savedHosts.value + fromServer).distinctBy { Settings.hostKey(it.second) }
+        val hidden = settings.hiddenHosts.value
+        return (listOfNotNull(cur) + settings.savedHosts.value + fromServer.filter { Settings.hostKey(it.second) !in hidden })
+            .distinctBy { Settings.hostKey(it.second) }
     }
 
     /** A readable default name for the server: its Tailscale device name, without "-rex". */

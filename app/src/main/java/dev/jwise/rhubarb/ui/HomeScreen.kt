@@ -394,8 +394,11 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                         "Stops everything running in this tab, on every Rex client.", "Close tab") {
                                         it.closeWindow(p.sessionId, p.windowId)
                                     }
-                                    swipe.reset()
                                 }
+                            }
+                            // Slide the row back once the confirmation closes.
+                            LaunchedEffect(confirm) {
+                                if (confirm == null && swipe.currentValue != androidx.compose.material3.SwipeToDismissBoxValue.Settled) swipe.reset()
                             }
                             androidx.compose.material3.SwipeToDismissBox(
                                 state = swipe, enableDismissFromStartToEnd = false,
@@ -649,7 +652,7 @@ private fun BoardCard(
 
 /** What shows under a row while it's swiped: a coloured strip with an icon and label at the end. */
 @Composable
-private fun SwipeBackground(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color) {
+internal fun SwipeBackground(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color) {
     Row(
         Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 1.dp)
             .background(bg, MaterialTheme.shapes.large).padding(horizontal = 24.dp),
