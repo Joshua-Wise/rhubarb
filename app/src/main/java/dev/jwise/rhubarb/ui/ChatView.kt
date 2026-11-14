@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
  * text, and tool calls grouped into rows that expand. Read from the session's transcript (see
  * [dev.jwise.rhubarb.agent.TranscriptFollower]); replies go through the message box below.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ChatView(
     items: List<ChatItem>, status: String?, working: Boolean, background: Color, foreground: Color, modifier: Modifier = Modifier,
@@ -102,8 +103,15 @@ fun ChatView(
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides foreground) {
     Box(modifier.background(background)) {
         if (items.isEmpty()) {
-            Text(status ?: "No messages yet", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.Center).padding(24.dp))
+            // Material's expressive loader while the conversation loads, as when a terminal connects.
+            Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (status?.startsWith("Loading") == true) {
+                    androidx.compose.material3.ContainedLoadingIndicator()
+                    Spacer(Modifier.size(16.dp))
+                }
+                Text(status ?: "No messages yet", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium)
+            }
             return@Box
         }
         LazyColumn(Modifier.fillMaxSize(), state = list, reverseLayout = true,
@@ -111,7 +119,7 @@ fun ChatView(
             verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)) {
             if (working) item(key = "working") {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
-                    androidx.compose.material3.CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                    androidx.compose.material3.LoadingIndicator(Modifier.size(24.dp))
                     Spacer(Modifier.width(10.dp))
                     Text("Working…", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
