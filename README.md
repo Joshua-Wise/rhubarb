@@ -53,7 +53,8 @@ GitHub builds are signed differently and can't update each other, so stick with 
   a photo or any file, the text, Enter/Send/Stop, and a mic for dictation through Android's own
   speech-to-text. Tapping the terminal puts the cursor there; the key bar's Keyboard chip still
   types straight into the terminal for vim and menus. Settings → Terminal → Message box turns it off.
-- **Feels like Android**: swipe a tab left on Home to close it, predictive back, Material You
+- **Feels like Android**: a docked bottom bar on Home (Settings, show/hide Needs you, New session,
+  Hosts, Search), swipe a tab left on Home to close it, predictive back, Material You
   colours, and a pane that runs edge to edge with a "jump to latest" button when you scroll back.
 - **Download files from the Mac**: ⋮ → Download a file browses the pane's machine from its
   folder; save, open or share what you pick. Needs Rex API revision 13.

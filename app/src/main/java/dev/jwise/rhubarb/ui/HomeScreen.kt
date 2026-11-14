@@ -57,7 +57,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
@@ -156,8 +155,6 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val toolbarScroll = androidx.compose.material3.FloatingToolbarDefaults.exitAlwaysScrollBehavior(
-        exitDirection = androidx.compose.material3.FloatingToolbarExitDirection.Bottom)
 
     // The "Needs you" board: what each agent needs, grouped. Finished and failed work stays until
     // its pane is opened or its card cleared.
@@ -202,56 +199,32 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Scaffold(
         topBar = {
-            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)) {
-                // Search app bar: a full-width pill that opens full-screen search.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        onClick = { searching = true },
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier.weight(1f).height(56.dp),
-                    ) {
-                        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Sym.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Search $title", style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
+            // The server (tap to switch) and its connection state.
+            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)) {
+                val (dot, text) = when (conn) {
+                    is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
+                    is ConnState.Connecting -> "working" to "Connecting…"
+                    is ConnState.Failed -> "error" to "Offline · ${(conn as ConnState.Failed).reason}"
+                    ConnState.Idle -> null to "Idle"
                 }
-                // Host (tap to switch) and connection state.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 6.dp).clip(MaterialTheme.shapes.small).clickable { showHosts = true }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.clip(MaterialTheme.shapes.medium).clickable { showHosts = true }.padding(horizontal = 8.dp, vertical = 4.dp),
                 ) {
-                    val (dot, text) = when (conn) {
-                        is ConnState.Connected -> "done" to "${sessions.size} sessions · ${panes.size} panes"
-                        is ConnState.Connecting -> "working" to "Connecting…"
-                        is ConnState.Failed -> "error" to "Offline · ${(conn as ConnState.Failed).reason}"
-                        ConnState.Idle -> null to "Idle"
-                    }
-                    Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Icon(Sym.ArrowDropDown, "Switch host")
-                    Spacer(Modifier.width(8.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)) {
                     StatusDot(dot); Spacer(Modifier.width(6.dp))
-                    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         },
-        // M3 Expressive floating toolbar: Settings, show/hide the board, hosts, and New session as
-        // its FAB. It slides away while the list scrolls down and comes back on the way up.
-        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
-        floatingActionButton = {
-            androidx.compose.material3.HorizontalFloatingToolbar(
-                expanded = true,
-                scrollBehavior = toolbarScroll,
-                colors = androidx.compose.material3.FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
-                floatingActionButton = {
-                    androidx.compose.material3.FloatingToolbarDefaults.VibrantFloatingActionButton(
-                        onClick = { if (conn is ConnState.Connected) creating = "" },
-                    ) { Icon(Sym.Add, "New session") }
-                },
+        // A docked bottom bar (M3): Settings, Needs you, New session in the middle, Hosts, Search.
+        bottomBar = {
+            androidx.compose.material3.FlexibleBottomAppBar(
+                horizontalArrangement = androidx.compose.material3.BottomAppBarDefaults.FlexibleHorizontalArrangement,
             ) {
                 IconButton(onClick = onSettings, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(Sym.Settings, "Settings") }
                 androidx.compose.material3.IconToggleButton(checked = boardOn, onCheckedChange = { app.settings.board.set(it) },
@@ -259,7 +232,15 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                     Icon(if (boardOn) Sym.VisibilityFilled else Sym.VisibilityOff,
                         if (boardOn) "Hide the Needs you board" else "Show the Needs you board")
                 }
+                androidx.compose.material3.FilledIconButton(
+                    onClick = { if (conn is ConnState.Connected) creating = "" },
+                    modifier = Modifier.size(56.dp),
+                    // A rounded square that squeezes a little when pressed, like M3's docked toolbar FAB.
+                    shapes = androidx.compose.material3.IconButtonShapes(
+                        shape = MaterialTheme.shapes.large, pressedShape = MaterialTheme.shapes.medium),
+                ) { Icon(Sym.Add, "New session") }
                 IconButton(onClick = { showHosts = true }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(Sym.Dns, "Hosts") }
+                IconButton(onClick = { searching = true }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) { Icon(Sym.Search, "Search") }
             }
         },
     ) { pad ->
@@ -268,7 +249,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
             onRefresh = { scope.launch { refreshing = true; hub?.refreshAll(); refreshing = false } },
             modifier = Modifier.padding(pad).fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize().nestedScroll(toolbarScroll), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 112.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)) {
                 // A fixed first row: rows that appear above the sessions later (the board) then show
                 // instead of landing above the top of a list that hasn't been scrolled.
                 item(key = "top") { Spacer(Modifier.height(1.dp)) }
