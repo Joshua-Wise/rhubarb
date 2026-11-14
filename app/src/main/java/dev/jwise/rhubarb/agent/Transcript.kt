@@ -96,7 +96,8 @@ class ChatModel {
     private val skipPrefixes = listOf("<local-command-stdout>", "<local-command-caveat>", "<system-reminder>", "<local-command-stderr>",
         "Caveat:", "<bash-input>", "<bash-stdout>", "<bash-stderr>", "<task-notification>")
 
-    fun feed(o: JsonObject) {
+    // Lines arrive on the stream's thread while the screen reads items() on another.
+    @Synchronized fun feed(o: JsonObject) {
         if (o["side"] != null || o["meta"] != null) return
         val type = o["t"]?.jsonPrimitive?.contentOrNull
         val key = (o["u"]?.jsonPrimitive?.contentOrNull ?: "x") + "#" + (n++)
@@ -146,7 +147,7 @@ class ChatModel {
     }
 
     /** The conversation so far, with consecutive tool calls grouped. */
-    fun items(): List<ChatItem> {
+    @Synchronized fun items(): List<ChatItem> {
         val out = ArrayList<ChatItem>()
         var group = ArrayList<ToolCall>()
         fun flush() { if (group.isNotEmpty()) { out += ChatItem.Tools("tools:" + group.first().id, group); group = ArrayList() } }
@@ -181,7 +182,12 @@ class TranscriptFollower(private val h: RexHub, private val sessionId: String, p
 
     fun start(cwd: String) {
         if (job != null) return
-        job = scope.launch {
+        // Nothing here may take the app down: a failure shows in the chat instead.
+        val guard = kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
+            android.util.Log.w("Transcript", "chat reader failed", e)
+            _status.value = "The conversation reader stopped: ${e.message ?: e::class.simpleName}"
+        }
+        job = scope.launch(guard + kotlinx.coroutines.SupervisorJob()) {
             try {
                 // Close this phone's helpers left over from before (Android ended the app early).
                 runCatching {
@@ -221,16 +227,19 @@ class TranscriptFollower(private val h: RexHub, private val sessionId: String, p
                             is TermEvent.Resize -> if (!started) { started = true; h.write(sessionId, bid, "\r") }
                             is TermEvent.Output -> {
                                 buf.append(String(ev.bytes, Charsets.UTF_8))
-                                while (true) {
-                                    val nl = buf.indexOf("\n"); if (nl < 0) break
-                                    val line = buf.substring(0, nl).trim(); buf.delete(0, nl + 1)
+                                // Split once per chunk; keep the unfinished last line for the next one.
+                                val last = buf.lastIndexOf("\n")
+                                if (last < 0) return@collect
+                                val done = buf.substring(0, last); buf.delete(0, last + 1)
+                                for (raw in done.split('\n')) {
+                                    val line = raw.trim()
                                     // The first line can carry the terminal's own redraw codes in front of it.
                                     val brace = line.indexOf('{'); if (brace < 0) continue
                                     val json = line.substring(brace)
                                     val o = runCatching { Json.parseToJsonElement(json).jsonObject }.getOrNull() ?: continue
                                     if (o["t"]?.jsonPrimitive?.contentOrNull == "rhubarb") {
                                         _status.value = if (o["none"] != null) "No Claude Code conversation found for this folder." else null
-                                    } else { model.feed(o); dirty = true; _status.value = null }
+                                    } else { runCatching { model.feed(o) }; dirty = true; _status.value = null }
                                 }
                             }
                             TermEvent.Closed -> if (_items.value.isEmpty()) _status.value = "The conversation reader stopped."
