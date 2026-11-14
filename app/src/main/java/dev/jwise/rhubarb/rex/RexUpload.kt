@@ -69,7 +69,7 @@ object RexUpload {
                 val buf = ByteArray(CHUNK); var n = 0L
                 while (true) { val r = s.read(buf); if (r < 0) break; n += r }
                 n
-            } ?: throw IllegalArgumentException("Can't read that image")
+            } ?: throw IllegalArgumentException("Can't read that file")
         }
         val type = mime ?: ctx.contentResolver.getType(uri)
         val ext = type?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) } ?: "png"

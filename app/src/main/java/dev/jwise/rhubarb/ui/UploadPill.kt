@@ -40,7 +40,7 @@ fun UploadPill(p: RexUpload.Progress, modifier: Modifier = Modifier, onCancel: (
                     if (p.fraction <= 0f) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.5.dp)
                     else CircularProgressIndicator(progress = { p.fraction }, modifier = Modifier.size(18.dp), strokeWidth = 2.5.dp)
                     Text(
-                        if (p.count > 1) "Sending ${p.index + 1} of ${p.count}" else if (p.fraction >= 1f) "Finishing…" else "Sending image",
+                        if (p.count > 1) "Sending ${p.index + 1} of ${p.count}" else if (p.fraction >= 1f) "Finishing…" else "Sending",
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }

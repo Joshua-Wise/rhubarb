@@ -39,6 +39,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
@@ -196,7 +199,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             } catch (e: Exception) {
                 val code = (e as? dev.jwise.rhubarb.rex.RexError)?.code
                 upload = RexUpload.Progress.Failed(when (code) {
-                    "method_not_found" -> "This Rex server is too old to receive images; update Rex"
+                    "method_not_found" -> "This Rex server is too old to receive files; update Rex"
                     "too_large" -> e.message ?: "Too large"
                     else -> e.message ?: "Couldn't send the image"
                 })
@@ -277,6 +280,16 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
 
     val pickImages = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         sendImages(uris.map { it to null })
+    }
+    // Any file, sent to the pane's machine the same way as images (Rex types its path).
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        sendImages(uris.map { it to null })
+    }
+    // Android's own speech-to-text: it records, Rhubarb only gets the words, which land in the box.
+    val dictate = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { t ->
+            input = if (input.isBlank()) t else input.trimEnd() + " " + t
+        }
     }
 
     val ready = remember { CompletableDeferred<Unit>() }
@@ -583,43 +596,57 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             )
             if (compose) {
                 // Optional message box: useful for voice typing or autocorrected prose.
-                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
-                    IconButton(onClick = { pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        modifier = Modifier.padding(bottom = 4.dp)) {
-                        Icon(Icons.Default.AddPhotoAlternate, "Send an image", tint = termFg)
-                    }
-                    androidx.compose.material3.TextField(
-                        value = input, onValueChange = { input = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text(if (isClaude) "Message Claude" else "Message") },
-                        textStyle = MaterialTheme.typography.bodyLarge,
-                        maxLines = 5,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
-                        colors = androidx.compose.material3.TextFieldDefaults.colors(
-                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { sendMessage() }),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    val stop = input.isEmpty() && claude?.working == true
-                    androidx.compose.material3.FilledIconButton(
-                        onClick = ::sendMessage, modifier = Modifier.size(56.dp),
-                        colors = if (stop) androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
-                        else androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(),
-                    ) {
-                        when {
-                            input.isNotEmpty() -> Icon(Icons.AutoMirrored.Filled.Send, "Send")
-                            stop -> Icon(Icons.Default.Stop, "Stop")
-                            else -> Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Press Enter")
+                // One wide pill, like the Claude and Messages apps: + to attach, then the text,
+                // then Enter/Send/Stop and the mic inside it.
+                var attachMenu by remember { mutableStateOf(false) }
+                val stop = input.isEmpty() && claude?.working == true
+                androidx.compose.material3.TextField(
+                    value = input, onValueChange = { input = it },
+                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
+                    placeholder = { Text(if (isClaude) "Message Claude" else "Message") },
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    maxLines = 5,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+                    colors = androidx.compose.material3.TextFieldDefaults.colors(
+                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                    leadingIcon = {
+                        androidx.compose.foundation.layout.Box {
+                            IconButton(onClick = { attachMenu = true }) { Icon(Icons.Default.Add, "Attach") }
+                            DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
+                                DropdownMenuItem(text = { Text("Photo") }, leadingIcon = { Icon(Icons.Default.AddPhotoAlternate, null) },
+                                    onClick = { attachMenu = false; pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+                                DropdownMenuItem(text = { Text("File") }, leadingIcon = { Icon(Icons.Default.AttachFile, null) },
+                                    onClick = { attachMenu = false; pickFiles.launch(arrayOf("*/*")) })
+                            }
                         }
-                    }
-                }
+                    },
+                    trailingIcon = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = ::sendMessage) {
+                                when {
+                                    input.isNotEmpty() -> Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = MaterialTheme.colorScheme.primary)
+                                    stop -> Icon(Icons.Default.Stop, "Stop", tint = MaterialTheme.colorScheme.error)
+                                    else -> Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Press Enter")
+                                }
+                            }
+                            IconButton(onClick = {
+                                val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, if (isClaude) "Message Claude" else "Message")
+                                try { dictate.launch(i) } catch (e: android.content.ActivityNotFoundException) {
+                                    android.widget.Toast.makeText(ctx, "No speech recognizer on this phone", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }) { Icon(Icons.Default.Mic, "Dictate") }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { sendMessage() }),
+                )
             }
         }
     }

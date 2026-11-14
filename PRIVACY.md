@@ -1,6 +1,6 @@
 # Rhubarb Privacy Policy
 
-_Last updated: November 13, 2026 (file downloads and the clipboard added for version 0.16)_
+_Last updated: November 14, 2026 (sending files and dictation added for version 0.17)_
 
 Rhubarb is an unofficial Android client for [Rex](https://superlogical.com), a terminal app for the Mac. It connects your Android device to a Rex server that you run yourself. Rhubarb is not affiliated with Superlogical.
 
@@ -24,7 +24,7 @@ Rhubarb connects only to the server addresses you enter. Over that connection it
 
 - Terminal input and output for the sessions you open.
 - Requests to create, rename, reorder or close sessions and tabs.
-- Images you choose to send to a terminal, from the photo picker, the clipboard or your keyboard.
+- Images and files you choose to send to a terminal, from the photo or file picker, the clipboard or your keyboard.
 - Files you choose to download from your Mac. They're kept in the app's private cache until you save, open or share them, and Android clears that cache when it needs space.
 - Your device's name, so the server can show which device is connected.
 
@@ -49,9 +49,10 @@ When you share text or images from another app to Rhubarb, it sends them only to
 - **Internet and network state:** to connect to your Rex server.
 - **Notifications:** to alert you when a session needs your attention.
 - **Foreground service:** to keep the connection to your server open in the background while alerts are on.
+- **Dictation:** the message box's mic button hands off to your phone's own speech-to-text, which records and turns your words into text. Rhubarb never records audio and has no microphone permission; it only receives the text, which goes into the box for you to review.
 - **Camera:** only when you tap **Scan QR code** to add a server, and only if you allow it. The camera image is read on your device to find the code and is never saved or sent anywhere.
 
-Rhubarb doesn't ask for access to your contacts, location, microphone or files. Images come only from items you pick or share yourself.
+Rhubarb doesn't ask for access to your contacts, location, microphone or files. Images and files come only from items you pick or share yourself.
 
 ## Google Play
 
