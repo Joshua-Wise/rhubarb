@@ -162,6 +162,21 @@ class Notifier(private val ctx: Context) {
         NotificationManagerCompat.from(ctx).cancel(notifId(blockId, 4))
     }
 
+    /**
+     * Drop "working" notifications for panes that stopped working, closed, or vanished without a
+     * status change (a tab closed mid-task). Runs whenever the hub's sessions or statuses change.
+     */
+    fun reconcileWorking(hub: RexHub) {
+        val live = hub.live.value
+        val present = hub.sessions.value.flatMap { s -> s.windows.flatMap { w -> w.blocks.map { it.blockId } } }.toSet()
+        for (bid in workingSince.keys.toList()) {
+            if (bid !in present || live[bid]?.top?.state != "working" || RexApp.instance.visibleBlockId == bid) cancelWorking(bid)
+        }
+    }
+
+    /** The connection is going away, so nothing can keep these up to date. */
+    fun cancelAllWorking() { workingSince.keys.toList().forEach(::cancelWorking) }
+
     fun onBlockEvent(sessionId: String, blockId: String, name: String, payload: JsonObject?, hub: RexHub) {
         val app = RexApp.instance
         val onScreen = app.visibleBlockId == blockId

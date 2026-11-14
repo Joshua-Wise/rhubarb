@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 class RexApp : Application() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -26,6 +27,8 @@ class RexApp : Application() {
 
     /** True while Rhubarb's UI is on screen (between the activity's onStart and onStop). */
     @Volatile var foreground = false
+
+    private var reconcileJob: kotlinx.coroutines.Job? = null
 
     /** Number of reasons to keep the connection open (UI visible, watcher service running). */
     private var holds = 0
@@ -44,7 +47,7 @@ class RexApp : Application() {
         get() = prefs.getString("server", null)
         set(v) {
             prefs.edit().putString("server", v).apply()
-            _hub.value?.stop(); _hub.value = null
+            _hub.value?.stop(); _hub.value = null; reconcileJob?.cancel(); notifier.cancelAllWorking()
             if (holds > 0) ensureHub()
         }
 
@@ -79,7 +82,7 @@ class RexApp : Application() {
 
     @Synchronized fun release() {
         holds = (holds - 1).coerceAtLeast(0)
-        if (holds == 0) { _hub.value?.stop(); _hub.value = null }
+        if (holds == 0) { _hub.value?.stop(); _hub.value = null; reconcileJob?.cancel(); notifier.cancelAllWorking() }
     }
 
     @Synchronized private fun ensureHub(): RexHub? {
@@ -89,6 +92,9 @@ class RexApp : Application() {
             notifier.onBlockEvent(sid, bid, name, payload, hub)
         }
         h.start()
+        // Keep "working" notifications honest when panes close or stop without a status event.
+        reconcileJob?.cancel()
+        reconcileJob = scope.launch { kotlinx.coroutines.flow.combine(h.sessions, h.live) { _, _ -> }.collect { notifier.reconcileWorking(h) } }
         _hub.value = h
         return h
     }
