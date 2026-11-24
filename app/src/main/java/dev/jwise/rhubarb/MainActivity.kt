@@ -1,5 +1,12 @@
 package dev.jwise.rhubarb
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -88,10 +95,31 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
     var hasServer by remember { mutableStateOf(app.serverUrl != null) }
     val link by deepLink.collectAsState()
 
+    // Tablets and unfolded foldables (not a phone on its side): Home and the open pane side by side.
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val wide = cfg.screenWidthDp >= 700 && cfg.screenHeightDp >= 600
+    var selSession by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    var selBlock by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    fun openPane(s: String, b: String, builder: androidx.navigation.NavOptionsBuilder.() -> Unit = {}) {
+        if (wide) {
+            selSession = s; selBlock = b
+            // A pane opened full screen (before the window widened) gives way to the split view.
+            if (nav.currentDestination?.route != "home") nav.popBackStack("home", inclusive = false)
+        } else nav.navigate("term/${android.net.Uri.encode(s)}/${android.net.Uri.encode(b)}", builder)
+    }
+    // Narrowed (folded, or split-screen) with a pane open beside Home: open it full screen instead.
+    LaunchedEffect(wide) {
+        val s = selSession; val b = selBlock
+        if (!wide && s != null && b != null) {
+            selSession = null; selBlock = null
+            nav.navigate("term/${android.net.Uri.encode(s)}/${android.net.Uri.encode(b)}")
+        }
+    }
+
     LaunchedEffect(link, hasServer) {
         val l = link ?: return@LaunchedEffect
         if (hasServer) {
-            nav.navigate("term/${android.net.Uri.encode(l.first)}/${android.net.Uri.encode(l.second)}") { launchSingleTop = true }
+            openPane(l.first, l.second) { launchSingleTop = true }
             deepLink.value = null
         }
     }
@@ -103,7 +131,7 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
             sh,
             onPick = { sid, bid ->
                 ShareInbox.deliver(bid, sh)
-                nav.navigate("term/${android.net.Uri.encode(sid)}/${android.net.Uri.encode(bid)}") { popUpTo("home") }
+                openPane(sid, bid) { popUpTo("home") }
             },
             onDismiss = { ShareInbox.waiting.value = null },
         )
@@ -145,11 +173,25 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
             })
         }
         composable("home") {
-            HomeScreen(
-                onOpen = { s, b -> nav.navigate("term/${android.net.Uri.encode(s)}/${android.net.Uri.encode(b)}") },
-                onSettings = { nav.navigate("settings") },
-                onAddServer = { serverSheet = "add" },
-            )
+            val home = @Composable {
+                HomeScreen(
+                    onOpen = { s, b -> openPane(s, b) },
+                    onSettings = { nav.navigate("settings") },
+                    onAddServer = { serverSheet = "add" },
+                    selected = selBlock.takeIf { wide },
+                )
+            }
+            if (!wide) home()
+            else androidx.compose.foundation.layout.Row(androidx.compose.ui.Modifier.fillMaxSize()) {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(400.dp).fillMaxHeight()) { home() }
+                androidx.compose.material3.VerticalDivider()
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f).fillMaxHeight()) {
+                    val s = selSession; val b = selBlock
+                    if (s != null && b != null) androidx.compose.runtime.key(b) {
+                        TerminalScreen(sessionId = s, blockId = b, onBack = { selSession = null; selBlock = null })
+                    } else EmptyDetail()
+                }
+            }
         }
         composable("settings") {
             SettingsScreen(onBack = { nav.popBackStack() }, onChangeServer = { serverSheet = "change" })
@@ -163,3 +205,21 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
         }
     }
 }
+
+/** The right side of the split view before a pane is picked. */
+@Composable
+private fun EmptyDetail() {
+    androidx.compose.foundation.layout.Box(
+        androidx.compose.ui.Modifier.fillMaxSize().background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerLow),
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+    ) {
+        androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            androidx.compose.material3.Icon(dev.jwise.rhubarb.ui.Sym.Terminal, null, androidx.compose.ui.Modifier.size(48.dp),
+                tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+            androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(12.dp))
+            androidx.compose.material3.Text("Pick a pane to open it here", style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+

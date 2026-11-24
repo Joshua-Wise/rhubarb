@@ -67,10 +67,13 @@ fun GroupItem(
     supporting: (@Composable () -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    /** The row that's open beside the list (split view). */
+    selected: Boolean = false,
 ) {
+    val bg = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
     Surface(
         shape = groupShape(index, count),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = bg,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 1.dp),
     ) {
         ListItem(
@@ -79,7 +82,7 @@ fun GroupItem(
                 onClick != null -> Modifier.clickable(onClick = onClick)
                 else -> Modifier
             },
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            colors = ListItemDefaults.colors(containerColor = bg),
             headlineContent = headline,
             supportingContent = supporting,
             leadingContent = leading,

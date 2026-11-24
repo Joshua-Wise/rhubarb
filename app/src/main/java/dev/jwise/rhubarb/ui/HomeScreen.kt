@@ -90,7 +90,7 @@ private data class Rename(val sessionId: String, val windowId: String?, val curr
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddServer: () -> Unit) {
+fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddServer: () -> Unit, selected: String? = null) {
     val app = RexApp.instance
     val hub by app.hub.collectAsState()
     val sessions by (hub?.sessions ?: remember { MutableStateFlow(emptyList()) }).collectAsState()
@@ -464,6 +464,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             ) {
                             GroupItem(
                                 index = i, count = sPanes.size,
+                                selected = p.blockId == selected,
                                 onClick = { onOpen(p.sessionId, p.blockId) },
                                 onLongClick = { menuFor = "p:" + p.blockId },
                                 leading = {
