@@ -66,24 +66,26 @@ import kotlinx.coroutines.withTimeoutOrNull
 @Composable
 fun ServerScreen(onSaved: () -> Unit) {
     var sheet by remember { mutableStateOf<Boolean?>(null) } // null: closed; true: scan first
+    // Short phones get a smaller icon and heading, so all three steps fit above the buttons.
+    val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 800
     Scaffold { pad ->
         Column(Modifier.padding(pad).fillMaxSize().padding(horizontal = 28.dp)) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Spacer(Modifier.height(56.dp))
-                AppIcon(Modifier.size(88.dp))
-                Spacer(Modifier.height(28.dp))
-                Text("Rex terminals\non the go.", style = MaterialTheme.typography.displaySmall,
+                Spacer(Modifier.height(if (compact) 16.dp else 32.dp))
+                AppIcon(Modifier.size(if (compact) 64.dp else 80.dp))
+                Spacer(Modifier.height(if (compact) 18.dp else 24.dp))
+                Text("Rex terminals\non the go.", style = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(14.dp))
                 Text("Reach your Rex terminals on the go: new sessions, agent updates, and more.",
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(36.dp))
+                Spacer(Modifier.height(if (compact) 20.dp else 28.dp))
                 Step(1, "Run Rex.", "Download and start Rex Server from Superlogical.")
                 Step(2, "Connect this device.", "Connect via Tailscale, VPN, or local IP.")
                 Step(3, "Add your server.", "Scan the Rex QR code or enter the URL manually.")
                 Spacer(Modifier.height(24.dp))
             }
-            Button(onClick = { sheet = false }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Button(onClick = { sheet = false }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(56.dp)) {
                 Text("Connect your Mac", style = MaterialTheme.typography.titleMedium)
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp), horizontalArrangement = Arrangement.Center) {
@@ -116,7 +118,7 @@ private fun AppIcon(modifier: Modifier) {
 
 @Composable
 private fun Step(n: Int, title: String, detail: String) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 22.dp)) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 18.dp)) {
         Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
             Text("$n", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }

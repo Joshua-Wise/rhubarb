@@ -9,9 +9,13 @@ unofficial client built on the API that every Rex server documents about itself 
 > Code by Anthropic). I directed, reviewed and tested each change on real devices against a real
 > Rex server; the AI wrote much of the code under that direction.
 
-| Home | Claude Code | Codex | New session |
+| Home | Claude Code | Chat view | Codex |
 | :---: | :---: | :---: | :---: |
-| <img src="store/screenshots/home.png" alt="Home: the Needs you board with Claude Code's permission prompt as buttons, finished and working agents, and the bottom bar" width="200"> | <img src="store/screenshots/claude-code.png" alt="A Claude Code pane: its permission prompt as answer buttons, the controls strip, key bar and message box" width="200"> | <img src="store/screenshots/codex.png" alt="A Codex pane with its own controls strip: mode, model and commands" width="200"> | <img src="store/screenshots/new-session.png" alt="New session sheet: name, starting folder and which agent to start" width="200"> |
+| <img src="store/screenshots/phone/2-home.png" alt="Home: the Needs you board with Claude Code's permission prompt as answer buttons, and the bottom bar" width="200"> | <img src="store/screenshots/phone/3-claude-code.png" alt="A Claude Code pane: its permission prompt as answer buttons, the controls strip, key bar and message box" width="200"> | <img src="store/screenshots/phone/4-chat.png" alt="Chat view: a Claude Code session as a conversation, with formatted replies and a folded tool row" width="200"> | <img src="store/screenshots/phone/6-codex.png" alt="A Codex pane with its own controls strip: mode, model and commands" width="200"> |
+
+<img src="store/screenshots/tablet/1-split-view.png" alt="On a tablet: Home with a helper agent nested under its lead, beside an open Claude Code pane" width="820">
+
+Screenshots are from the built-in demo (**Try the demo** on the welcome screen), not a real Mac.
 
 ## Get it
 

@@ -179,6 +179,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     val answerOn by app.settings.answerButtons.value.collectAsState()
     val seen by app.settings.seen.collectAsState()
     val pinned by app.settings.pinned.collectAsState()
+    // The demo banner can be put away until the app is next opened.
+    var demoBannerHidden by remember { mutableStateOf(false) }
     fun unseen(p: Pane) = live[p.blockId]?.top?.let { seen[p.blockId] != it.updatedAt } == true
     /** Changed since you last opened it, in a way worth a look (asking, finished or failed). */
     fun unread(p: Pane) = unseen(p) && live[p.blockId]?.top?.state in setOf("blocked", "done", "error")
@@ -302,7 +304,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                 }
 
                 // The demo says so, and offers the way to a real Mac.
-                if (dev.jwise.rhubarb.rex.Demo.isDemo(app.serverUrl)) item(key = "demo") {
+                if (dev.jwise.rhubarb.rex.Demo.isDemo(app.serverUrl) && !demoBannerHidden) item(key = "demo") {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                         shape = MaterialTheme.shapes.extraLarge,
@@ -312,7 +314,9 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             Text("You're trying the demo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text("These sessions are made up and nothing runs anywhere. Answer Claude's question, swipe a card, or open a pane and switch to chat.",
                                 style = MaterialTheme.typography.bodyMedium)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { demoBannerHidden = true }) { Text("Hide") }
+                                Spacer(Modifier.width(8.dp))
                                 Button(onClick = onAddServer) { Text("Connect your Mac") }
                             }
                         }
