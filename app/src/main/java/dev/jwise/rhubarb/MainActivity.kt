@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -58,8 +59,26 @@ class MainActivity : ComponentActivity() {
         IncomingShare.from(i)?.let { ShareInbox.waiting.value = it }
     }
 
-    override fun onStart() { super.onStart(); (application as RexApp).run { foreground = true; acquire() } }
-    override fun onStop() { (application as RexApp).run { foreground = false; release() }; super.onStop() }
+    override fun onStart() {
+        super.onStart()
+        (application as RexApp).run {
+            foreground = true; acquire()
+            // Chats closed when the app left the screen pick up again on the same connection.
+            hub.value?.let { dev.jwise.rhubarb.agent.ChatFollowers.resumeAll(it) }
+            // Android stops the service on an app update or force stop; bring it back if it's on.
+            if (watchEnabled) runCatching { dev.jwise.rhubarb.service.WatchService.start(this@MainActivity) }
+        }
+    }
+    override fun onStop() {
+        (application as RexApp).run {
+            foreground = false
+            // Chat helpers don't run on the Mac while Rhubarb is off screen (even if alerts keep the
+            // connection open); release() also waits for them before dropping the connection.
+            hub.value?.let { h -> scope.launch { dev.jwise.rhubarb.agent.ChatFollowers.closeAll(h) } }
+            release()
+        }
+        super.onStop()
+    }
 }
 
 @Composable
@@ -72,7 +91,7 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
     LaunchedEffect(link, hasServer) {
         val l = link ?: return@LaunchedEffect
         if (hasServer) {
-            nav.navigate("term/${l.first}/${l.second}") { launchSingleTop = true }
+            nav.navigate("term/${android.net.Uri.encode(l.first)}/${android.net.Uri.encode(l.second)}") { launchSingleTop = true }
             deepLink.value = null
         }
     }
@@ -84,7 +103,7 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
             sh,
             onPick = { sid, bid ->
                 ShareInbox.deliver(bid, sh)
-                nav.navigate("term/$sid/$bid") { popUpTo("home") }
+                nav.navigate("term/${android.net.Uri.encode(sid)}/${android.net.Uri.encode(bid)}") { popUpTo("home") }
             },
             onDismiss = { ShareInbox.waiting.value = null },
         )
@@ -127,7 +146,7 @@ private fun AppNav(deepLink: MutableStateFlow<Pair<String, String>?>) {
         }
         composable("home") {
             HomeScreen(
-                onOpen = { s, b -> nav.navigate("term/$s/$b") },
+                onOpen = { s, b -> nav.navigate("term/${android.net.Uri.encode(s)}/${android.net.Uri.encode(b)}") },
                 onSettings = { nav.navigate("settings") },
                 onAddServer = { serverSheet = "add" },
             )

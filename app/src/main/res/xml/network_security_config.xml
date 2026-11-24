@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tailscale MagicDNS names get real HTTPS certs, so cleartext stays off except for
-     tailnet IPs/hosts users may type with ws:// (traffic is still WireGuard-encrypted). -->
+<!-- Cleartext is off except for Tailscale MagicDNS names (*.ts.net), which users may type with
+     ws:// (traffic is still WireGuard-encrypted). Bare tailnet IPs (100.x) aren't covered: Android
+     can't match an IP range here, so those need https:// or the MagicDNS name. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">

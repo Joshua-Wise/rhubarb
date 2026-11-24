@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class RexApp : Application() {
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // A failure in background work is logged, never fatal (it would also kill the alerts service).
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default +
+        kotlinx.coroutines.CoroutineExceptionHandler { _, e -> android.util.Log.e("Rhubarb", "background task failed", e) })
     lateinit var notifier: Notifier
         private set
     lateinit var settings: Settings
@@ -80,11 +82,24 @@ class RexApp : Application() {
     fun defaultHostLabel(): String =
         (serverUrl ?: "Rex").removePrefix("https://").removePrefix("wss://").substringBefore('.').removeSuffix("-rex")
 
-    @Synchronized fun acquire(): RexHub? { holds++; return ensureHub() }
+    @Synchronized fun acquire(): RexHub? {
+        holds++
+        return ensureHub()
+    }
 
     @Synchronized fun release() {
         holds = (holds - 1).coerceAtLeast(0)
-        if (holds == 0) { _hub.value?.stop(); _hub.value = null; reconcileJob?.cancel(); notifier.cancelAllWorking() }
+        if (holds == 0) {
+            val h = _hub.value ?: return
+            // Close chat helpers on the Mac while the connection still works, then drop it (unless
+            // the app came back meanwhile).
+            scope.launch {
+                kotlinx.coroutines.withTimeoutOrNull(3_000) { dev.jwise.rhubarb.agent.ChatFollowers.closeAll(h) }
+                synchronized(this@RexApp) {
+                    if (holds == 0 && _hub.value === h) { h.stop(); _hub.value = null; reconcileJob?.cancel(); notifier.cancelAllWorking() }
+                }
+            }
+        }
     }
 
     @Synchronized private fun ensureHub(): RexHub? {

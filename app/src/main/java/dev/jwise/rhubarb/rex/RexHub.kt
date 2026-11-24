@@ -376,7 +376,14 @@ class RexHub(
     private fun updateLive(blockId: String, f: (BlockLive) -> BlockLive) =
         _live.update { it + (blockId to f(it[blockId] ?: BlockLive())) }
 
+    /** One event; one the app doesn't understand (a newer Rex, odd data) is logged and skipped. */
     private fun handleEvent(ev: JsonObject) {
+        try { handleEventUnsafe(ev) } catch (e: Exception) {
+            android.util.Log.w("RexHub", "skipped event ${ev["type"]}", e)
+        }
+    }
+
+    private fun handleEventUnsafe(ev: JsonObject) {
         val type = ev["type"]?.jsonPrimitive?.contentOrNull
         val payload = ev["payload"] as? JsonObject
         when (type) {

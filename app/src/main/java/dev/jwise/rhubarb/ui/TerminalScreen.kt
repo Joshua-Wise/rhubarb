@@ -300,7 +300,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     val follower = remember(chatSource) {
         chatSource?.let { src ->
             dev.jwise.rhubarb.agent.ChatFollowers.get("$sessionId/$blockId/${src.program}") {
-                dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId, src)
+                dev.jwise.rhubarb.agent.TranscriptFollower(h, sessionId, app.scope, app.settings.installId, src, blockId)
             }
         }
     }

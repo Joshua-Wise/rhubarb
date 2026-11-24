@@ -32,7 +32,7 @@ That server is yours. What happens to the data there is up to you and Rex's own 
 
 ## Chat view
 
-When you open a Claude Code or Codex pane in chat view, Rhubarb starts a small hidden helper in that session on your Mac. It reads the agent's own session files in your home folder there (Claude Code's `~/.claude/projects`, Codex's `~/.codex/sessions`) for the pane's folder and sends the conversation to your phone over your connection to your Rex server, trimmed to messages, commands and short tool output. Rhubarb shows it and keeps the most recent few in memory; it doesn't save it on your device or send it anywhere else. The helper closes when you leave the pane and ends by itself after two hours.
+When you open a Claude Code or Codex pane in chat view, Rhubarb starts a small hidden helper in that session on your Mac. It reads the agent's own session files in your home folder there (Claude Code's `~/.claude/projects`, Codex's `~/.codex/sessions`) for the pane's folder and sends the conversation to your phone over your connection to your Rex server, trimmed to messages, commands and short tool output. Rhubarb shows it and keeps the most recent few in memory; it doesn't save it on your device or send it anywhere else. The helper closes when you leave the pane or switch away from Rhubarb, and ends by itself after two hours.
 
 ## Notifications
 

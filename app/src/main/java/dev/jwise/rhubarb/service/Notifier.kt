@@ -88,7 +88,9 @@ class Notifier(private val ctx: Context) {
         }
         val pi = PendingIntent.getBroadcast(ctx, blockId.hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
         val ri = RemoteInput.Builder(KEY_REPLY).setLabel("Type into terminal (Enter is added)").build()
-        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, "Reply", pi).addRemoteInput(ri).build()
+        // Typing into a terminal from the lock screen would let anyone holding the phone do it.
+        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, "Reply", pi).addRemoteInput(ri)
+            .setAuthenticationRequired(true).build()
     }
 
     /** A button that answers a menu option, checked against the screen again before it's pressed. */
@@ -102,7 +104,8 @@ class Notifier(private val ctx: Context) {
         }
         val pi = PendingIntent.getBroadcast(ctx, (blockId + "#" + o.number).hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val label = o.label.let { if (it.length > 28) it.take(27) + "…" else it }
-        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, label, pi).build()
+        // An answer can approve a command on the Mac, so the phone must be unlocked first.
+        return NotificationCompat.Action.Builder(R.drawable.ic_stat_rhubarb, label, pi).setAuthenticationRequired(true).build()
     }
 
     /** Update the "needs you" notification after a button was tapped, e.g. when the menu had changed. */

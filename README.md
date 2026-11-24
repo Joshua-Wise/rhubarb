@@ -49,7 +49,7 @@ GitHub builds are signed differently and can't update each other, so stick with 
   instead of the terminal: your messages as bubbles, the agent's replies formatted, and commands
   and edits folded into rows that open. A button in the pane's top bar switches between the two,
   and Settings sets which one panes open in. It reads the agent's own session files on the Mac
-  through a hidden helper that Rhubarb starts in the session and closes when you leave the pane.
+  through a hidden helper that Rhubarb starts in the session and closes when you leave the pane or the app.
 - **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
   working) with how long ago each changed. Finished work stays until you open it or clear it
   (or swipe it away). The eye in Home's bottom bar shows or hides it.

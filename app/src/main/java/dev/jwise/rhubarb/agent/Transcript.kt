@@ -177,6 +177,8 @@ class ChatModel {
 class TranscriptFollower(
     private var h: RexHub, private val sessionId: String, private val scope: CoroutineScope, installId: String,
     private val source: TranscriptSource = TranscriptSources.claude,
+    /** The pane this reads for: its helper's label names it, so other panes' helpers are left alone. */
+    paneId: String = "",
 ) {
     /** Where the chat was scrolled to (the item at the top of the view and how far into it), kept
      *  while you're in the terminal or away from the app. Null: at the newest message. */
@@ -185,7 +187,7 @@ class TranscriptFollower(
     var choice: Boolean? = null
 
     /** This install's helpers carry this label, so leftovers (the app was killed) can be found and closed. */
-    private val label = "rhubarb-chat:$installId"
+    private val label = "rhubarb-chat:$installId" + (if (paneId.isNotEmpty()) ":$paneId" else "")
     private val _items = MutableStateFlow<List<ChatItem>>(emptyList())
     val items: StateFlow<List<ChatItem>> = _items
     private val _status = MutableStateFlow<String?>("Loading the conversation…")
@@ -198,9 +200,12 @@ class TranscriptFollower(
 
     /** Starts (or restarts, on a new connection) reading. Items already shown stay. */
     fun start(cwd: String, hub: RexHub = h) {
-        if (job != null && hub === h) return
+        paused = false
+        if (job?.isActive == true && hub === h) return
         if (job != null) stop()
         h = hub
+        lastCwd = cwd
+        val h = hub
         // Nothing here may take the app down: a failure shows in the chat instead.
         val guard = kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
             android.util.Log.w("Transcript", "chat reader failed", e)
@@ -234,7 +239,7 @@ class TranscriptFollower(
                 blockId = bid
                 val s = TerminalStream(h.control, sessionId, bid, scope, null)
                 stream = s
-                val buf = StringBuilder()
+                var pending = ByteArray(0)
                 var started = false
                 var dirty = false
                 // The first time, show the conversation once the backlog has arrived (output quiet for
@@ -256,11 +261,13 @@ class TranscriptFollower(
                             is TermEvent.Resize -> if (!started) { started = true; h.write(sessionId, bid, "\r") }
                             is TermEvent.Output -> {
                                 lastOut = System.currentTimeMillis()
-                                buf.append(String(ev.bytes, Charsets.UTF_8))
-                                // Split once per chunk; keep the unfinished last line for the next one.
-                                val last = buf.lastIndexOf("\n")
-                                if (last < 0) return@collect
-                                val done = buf.substring(0, last); buf.delete(0, last + 1)
+                                // Decode only whole lines (a character can be split across chunks);
+                                // keep the unfinished last line for the next one.
+                                val bytes = pending + ev.bytes
+                                val last = bytes.lastIndexOf('\n'.code.toByte())
+                                if (last < 0) { pending = bytes; return@collect }
+                                val done = String(bytes, 0, last, Charsets.UTF_8)
+                                pending = bytes.copyOfRange(last + 1, bytes.size)
                                 for (raw in done.split('\n')) {
                                     val line = raw.trim()
                                     // The first line can carry the terminal's own redraw codes in front of it.
@@ -272,12 +279,17 @@ class TranscriptFollower(
                                     } else { runCatching { model.feed(o) }; dirty = true }
                                 }
                             }
-                            TermEvent.Closed -> if (_items.value.isEmpty()) _status.value = "The conversation reader stopped."
+                            TermEvent.Closed -> {
+                                if (blockId == bid) blockId = null
+                                restartLater(bid)
+                            }
                             else -> Unit
                         }
                     }
                 }
                 s.start()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _status.value = "Couldn't read the conversation: ${e.message}"
             }
@@ -285,13 +297,63 @@ class TranscriptFollower(
     }
 
     fun stop() {
-        job?.cancel(); job = null
-        _status.value = if (_items.value.isEmpty()) "Loading the conversation…" else null
-        stream?.stop(); stream = null
+        stopped()
         val bid = blockId ?: return
         blockId = null
+        val hub = h
         scope.launch {
-            runCatching { h.control.call("block.close", buildJsonObject { put("session_id", sessionId); put("block_id", bid) }) }
+            runCatching { hub.control.call("block.close", buildJsonObject { put("session_id", sessionId); put("block_id", bid) }) }
+        }
+    }
+
+    private fun stopped() {
+        job?.cancel(); job = null
+        restart?.cancel(); restart = null
+        _status.value = if (_items.value.isEmpty()) "Loading the conversation…" else null
+        stream?.stop(); stream = null
+    }
+
+    /** Closes the helper and waits for the Mac to confirm, while [hub] is still connected (the app is
+     *  going to the background and is about to drop the connection). */
+    suspend fun closeNow(hub: RexHub) {
+        if (hub !== h || job == null) return
+        paused = true
+        stopped()
+        val bid = blockId ?: return
+        blockId = null
+        runCatching { hub.control.call("block.close", buildJsonObject { put("session_id", sessionId); put("block_id", bid) }) }
+    }
+
+    private var lastCwd: String? = null
+    /** Closed by [closeNow]; [resume] starts it again if the app comes back on the same connection. */
+    private var paused = false
+
+    fun resume(hub: RexHub) {
+        if (!paused || hub !== h) return
+        paused = false
+        lastCwd?.let { start(it, hub) }
+    }
+    private var restart: Job? = null
+    private var lastRestart = 0L
+
+    /** The helper ended on its own: start a new one (at most once a minute); lines already shown stay. */
+    private fun restartLater(ended: String) {
+        val cwd = lastCwd ?: return
+        // No conversation for this folder: nothing to follow, and the message stays.
+        if (_status.value?.startsWith("No ") == true) return
+        val now = System.currentTimeMillis()
+        if (now - lastRestart < 60_000) {
+            _status.value = if (_items.value.isEmpty()) "The conversation reader stopped." else null
+            return
+        }
+        lastRestart = now
+        val hub = h
+        restart = scope.launch {
+            delay(1500)
+            if (h !== hub || blockId != null && blockId != ended) return@launch
+            job?.cancel(); job = null
+            stream?.stop(); stream = null
+            start(cwd, hub)
         }
     }
 
@@ -348,6 +410,18 @@ object ChatFollowers {
             (size > 6).also { if (it) e?.value?.stop() }
     }
     @Synchronized fun get(key: String, make: () -> TranscriptFollower): TranscriptFollower = kept.getOrPut(key, make)
+
+    /** Close the helpers running on [hub] (the app is leaving the screen and will drop it). */
+    /** The app came back before the connection was dropped: reopen the chats [closeAll] closed. */
+    fun resumeAll(hub: RexHub) {
+        val all = synchronized(this) { kept.values.toList() }
+        for (f in all) f.resume(hub)
+    }
+
+    suspend fun closeAll(hub: RexHub) {
+        val all = synchronized(this) { kept.values.toList() }
+        for (f in all) f.closeNow(hub)
+    }
 }
 
 /**
@@ -374,12 +448,12 @@ object TranscriptSources {
     fun forProgram(name: String): TranscriptSource? = all.firstOrNull { it.program == name }
 }
 
-internal const val CODEX_SH = """c=${'$'}(pwd)
-stty -echo 2>/dev/null; read go
-f=""
-for x in ${'$'}(ls -t ${'$'}(find "${'$'}HOME/.codex/sessions" -name 'rollout-*.jsonl' -mtime -30 2>/dev/null) 2>/dev/null | head -n 60); do
-  if head -n 1 "${'$'}x" | grep -qF "\"cwd\":\"${'$'}c\""; then f="${'$'}x"; break; fi
-done
+internal const val CODEX_SH = """stty -echo 2>/dev/null; read go
+# The newest recent session whose first line names this folder (compared as parsed JSON, so any
+# folder name matches; file names are passed NUL-separated, so spaces are fine).
+f=${'$'}(find "${'$'}HOME/.codex/sessions" -name 'rollout-*.jsonl' -mtime -30 -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -n 60 |
+  perl -MJSON::PP -e 'my ${'$'}c = ${'$'}ENV{PWD}; while (my ${'$'}x = <STDIN>) { chomp ${'$'}x; open(my ${'$'}h, "<", ${'$'}x) or next; my ${'$'}l = <${'$'}h>; close ${'$'}h;
+    my ${'$'}o = eval { decode_json(${'$'}l) } or next; if ((${'$'}o->{payload}{cwd} // "") eq ${'$'}c) { print ${'$'}x; last } }')
 if [ -z "${'$'}f" ]; then echo '{"t":"rhubarb","none":1}'; exit 0; fi
 echo '{"t":"rhubarb","ok":1}'
 tail -n 20000 -F "${'$'}f" 2>/dev/null | perl -MJSON::PP -e "${'$'}1""""

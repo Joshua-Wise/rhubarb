@@ -33,8 +33,14 @@ class WatchService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") { stopSelf(); return START_NOT_STICKY }
         val app = application as RexApp
-        ServiceCompat.startForeground(this, 1, buildNotification("Connecting…"),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // Android can refuse (e.g. a restart while the app isn't allowed to start one): stop quietly;
+        // opening the app starts it again.
+        try {
+            ServiceCompat.startForeground(this, 1, buildNotification("Connecting…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } catch (e: Exception) {
+            android.util.Log.w("WatchService", "couldn't start in the foreground", e)
+            stopSelf(); return START_NOT_STICKY
+        }
         if (job == null) {
             app.acquire()
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)

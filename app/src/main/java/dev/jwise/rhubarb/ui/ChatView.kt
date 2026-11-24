@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import dev.jwise.rhubarb.RexApp
 import dev.jwise.rhubarb.agent.ChatItem
 import dev.jwise.rhubarb.agent.ToolCall
 import dev.jwise.rhubarb.agent.toolsTitle
@@ -278,6 +279,13 @@ private fun mdBlocks(text: String): List<Md> {
 
 private val INLINE = Regex("""`([^`]+)`|\*\*(.+?)\*\*|\[([^\]]+)]\((https?://[^)\s]+)\)|(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?!\w)""")
 
+private fun openLink(url: String) {
+    runCatching {
+        RexApp.instance.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
 private fun inline(s: String, codeBg: Color, link: Color): AnnotatedString = buildAnnotatedString {
     var at = 0
     for (m in INLINE.findAll(s)) {
@@ -286,7 +294,7 @@ private fun inline(s: String, codeBg: Color, link: Color): AnnotatedString = bui
         when {
             c.isNotEmpty() -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = codeBg)) { append(c) }
             b.isNotEmpty() -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(b) }
-            lt.isNotEmpty() -> withLink(LinkAnnotation.Url(lu)) { withStyle(SpanStyle(color = link)) { append(lt) } }
+            lt.isNotEmpty() -> withLink(LinkAnnotation.Url(lu) { openLink(lu) }) { withStyle(SpanStyle(color = link)) { append(lt) } }
             it.isNotEmpty() -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(it) }
         }
         at = m.range.last + 1

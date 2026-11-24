@@ -270,6 +270,8 @@ internal fun explainFailure(baseUrl: String, t: Throwable, httpCode: Int?): Stri
         t is javax.net.ssl.SSLHandshakeException || t is javax.net.ssl.SSLPeerUnverifiedException ->
             "$host's certificate isn't trusted, so the connection was refused for safety."
         t is java.io.EOFException -> "$host closed the connection before answering."
+        t.message?.contains("CLEARTEXT", ignoreCase = true) == true ->
+            "Unencrypted connections are only allowed to Tailscale names (*.ts.net). Use https:// or the Mac's ts.net name."
         else -> t.message ?: t.toString()
     }
 }
