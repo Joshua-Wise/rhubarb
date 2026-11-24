@@ -74,12 +74,16 @@ class RexControl(
         }
 
         /** Accepts `host.ts.net`, `https://host.ts.net`, `host:port`, etc. Returns e.g. `wss://host.ts.net`. */
+        private val localHost = Regex("""\d{1,3}(\.\d{1,3}){3}|ip6|localhost|.+\.local""", RegexOption.IGNORE_CASE)
+
         fun normalizeBase(input: String): String {
             var s = input.trim().trimEnd('/')
             s = when {
                 s.startsWith("https://") -> "wss://" + s.removePrefix("https://")
                 s.startsWith("http://") -> "ws://" + s.removePrefix("http://")
                 s.startsWith("wss://") || s.startsWith("ws://") -> s
+                // A bare IP address or .local name is a local listener (plain HTTP); names get HTTPS.
+                localHost.matches(s.substringBefore('/').substringBefore(':').let { if (s.startsWith("[")) "ip6" else it }) -> "ws://$s"
                 else -> "wss://$s"
             }
             return s.substringBefore("/api")
@@ -270,8 +274,6 @@ internal fun explainFailure(baseUrl: String, t: Throwable, httpCode: Int?): Stri
         t is javax.net.ssl.SSLHandshakeException || t is javax.net.ssl.SSLPeerUnverifiedException ->
             "$host's certificate isn't trusted, so the connection was refused for safety."
         t is java.io.EOFException -> "$host closed the connection before answering."
-        t.message?.contains("CLEARTEXT", ignoreCase = true) == true ->
-            "Unencrypted connections are only allowed to Tailscale names (*.ts.net). Use https:// or the Mac's ts.net name."
         else -> t.message ?: t.toString()
     }
 }

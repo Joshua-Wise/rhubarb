@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cleartext is off except for Tailscale MagicDNS names (*.ts.net), which users may type with
-     ws:// (traffic is still WireGuard-encrypted). Bare tailnet IPs (100.x) aren't covered: Android
-     can't match an IP range here, so those need https:// or the MagicDNS name. -->
+<!-- Rex servers can listen on the local network over plain HTTP (rex server run, extra-listen http),
+     and users may type a tailnet IP or LAN address with http:// or ws://, so cleartext is allowed for
+     addresses the user enters. Tailscale traffic is WireGuard-encrypted either way; the server form
+     warns when an address would connect unencrypted. -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">ts.net</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

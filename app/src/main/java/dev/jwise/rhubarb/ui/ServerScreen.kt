@@ -72,15 +72,15 @@ fun ServerScreen(onSaved: () -> Unit) {
                 Spacer(Modifier.height(56.dp))
                 AppIcon(Modifier.size(88.dp))
                 Spacer(Modifier.height(28.dp))
-                Text("Your Mac's terminals,\nin your pocket.", style = MaterialTheme.typography.displaySmall,
+                Text("Rex terminals\non the go.", style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(14.dp))
-                Text("Answer your coding agents, follow their work and type into any tab on your Mac, wherever you are.",
+                Text("Reach your Rex terminals on the go: new sessions, agent updates, and more.",
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(36.dp))
-                Step(1, "Run Rex on your Mac.", "With its server on: `rex server status` shows it.")
-                Step(2, "Reach it from this phone.", "Tailscale on both, signed in to the same account.")
-                Step(3, "Add the server.", "Scan the code from `rex server tailscale pair`, or type its address.")
+                Step(1, "Run Rex.", "Download and start Rex Server from Superlogical.")
+                Step(2, "Connect this device.", "Connect via Tailscale, VPN, or local IP.")
+                Step(3, "Add your server.", "Scan the Rex QR code or enter the URL manually.")
                 Spacer(Modifier.height(24.dp))
             }
             Button(onClick = { sheet = false }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
@@ -141,6 +141,13 @@ fun AddServerSheet(title: String, initialUrl: String, onDismiss: () -> Unit, onS
             ServerForm(initialUrl = initialUrl, onSaved = onSaved, scanFirst = scanFirst)
         }
     }
+}
+
+/** An address that would connect without encryption (http/ws to anything but a Tailscale name, which WireGuard encrypts). */
+private fun unencrypted(url: String): Boolean {
+    val u = url.trim().lowercase()
+    val plain = u.startsWith("http://") || u.startsWith("ws://")
+    return plain && !u.substringAfter("://").substringBefore('/').substringBefore(':').endsWith(".ts.net")
 }
 
 /**
@@ -205,7 +212,8 @@ private fun ServerForm(initialUrl: String, onSaved: () -> Unit, scanFirst: Boole
                 IconButton(enabled = !busy, onClick = { startScan() }) { Icon(Sym.QrCodeScanner, "Scan QR code") }
             },
             supportingText = {
-                Text(error ?: "Tailnet name, host:port or https:// address. Or scan the code from `rex server tailscale pair`.")
+                Text(error ?: if (unencrypted(url)) "Not encrypted: others on this network could see what you type and read."
+                    else "Tailnet name, host:port or https:// address. Or scan the code from rex server tailscale pair.")
             },
             isError = error != null,
             singleLine = true,
