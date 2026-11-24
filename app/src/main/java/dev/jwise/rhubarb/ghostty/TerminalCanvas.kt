@@ -80,6 +80,8 @@ fun TerminalCanvas(
     onSelectionChanged: (TerminalSelectionState?) -> Unit = {},
     // Rhubarb: long-pressing a link calls this instead of starting a selection.
     onLinkLongPress: ((url: String) -> Unit)? = null,
+    // Rhubarb: long-pressing a file path calls this (download it from the Mac).
+    onPathLongPress: ((path: String) -> Unit)? = null,
     // Rhubarb: find-in-scrollback matches to tint, and which one is current.
     searchMatches: List<SearchMatch> = emptyList(),
     currentMatch: SearchMatch? = null,
@@ -206,6 +208,7 @@ fun TerminalCanvas(
     val currentTouchSlopPx = rememberUpdatedState(touchSlopPx)
     val currentLongPressSlopPx = rememberUpdatedState(longPressSlopPx)
     val currentOnLinkLongPress = rememberUpdatedState(onLinkLongPress)
+    val currentOnPathLongPress = rememberUpdatedState(onPathLongPress)
     val currentLongPressTimeoutMillis = rememberUpdatedState(longPressTimeoutMillis)
     val currentAutoScrollEdgeZonePx = rememberUpdatedState(autoScrollEdgeZonePx)
     val currentDoubleTapTimeoutMillis = rememberUpdatedState(doubleTapTimeoutMillis)
@@ -335,9 +338,11 @@ fun TerminalCanvas(
                                     if (dragMode == DragMode.None) {
                                         val s = currentSnapshot.value
                                         val downPos = toSnapshotSpace(down.position, s)
+                                        val cell = s.cellAt(downPos.x, downPos.y, currentCellWidth.value, currentCellHeight.value)
                                         val link = currentOnLinkLongPress.value?.let { cb ->
-                                            s.cellAt(downPos.x, downPos.y, currentCellWidth.value, currentCellHeight.value)
-                                                ?.let { s.urlAt(it) }?.let { it to cb }
+                                            cell?.let { s.urlAt(it) }?.takeIf { !it.startsWith("file:") }?.let { it to cb }
+                                        } ?: currentOnPathLongPress.value?.let { cb ->
+                                            cell?.let { s.pathAt(it) }?.let { it to cb }
                                         }
                                         if (link != null) {
                                             currentHaptics.value.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -997,8 +1002,9 @@ private const val PAINT_EMOJI: Int = 3
  *     pairs, and VS16-promoted color emoji.
  */
 /**
- * Rhubarb: Android ships no font with some symbols programs print, such as Claude Code's
- * ⏵⏵ (U+23F5), which would draw as empty boxes. When no paint has the glyph, use a look-alike.
+ * Rhubarb: Android has no text-style glyphs for these media symbols. Some draw as empty boxes
+ * (Claude Code's ⏵⏵, U+23F5) and others come from the colour emoji font (its ⏺ bullet, U+23FA,
+ * would be an orange "record" button), so they always draw as plain look-alikes, as on the Mac.
  */
 private val lookAlikes = mapOf(
     0x23F4 to 0x25C2, 0x23F5 to 0x25B8, 0x23F6 to 0x25B4, 0x23F7 to 0x25BE, // ⏴⏵⏶⏷ → ◂▸▴▾
@@ -1008,11 +1014,9 @@ private val lookAlikes = mapOf(
 
 private fun displayCodepoint(cp: Int, cache: HashMap<Int, Int>, primary: Paint, fallback: Paint, emoji: Paint): Int {
     if (cp < 0x2000) return cp
-    val alt = lookAlikes[cp] ?: return cp
-    return cache.getOrPut(cp) {
-        val g = String(Character.toChars(cp))
-        if (primary.hasGlyph(g) || fallback.hasGlyph(g) || emoji.hasGlyph(g)) cp else alt
-    }
+    // Always the look-alike: Paint.hasGlyph counts Android's fallback fonts, so it would report the
+    // colour emoji as a match.
+    return lookAlikes[cp] ?: cp
 }
 
 private fun pickPaintChoice(

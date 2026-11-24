@@ -267,3 +267,33 @@ internal fun TerminalSnapshot.urlAt(cellIndex: Int): String? {
     }
     return url.takeIf { it.length > 4 }
 }
+
+// Rhubarb: file paths, for long-press → download. A path is a run of path characters that has a
+// slash (src/app.ts, ~/notes.md, /tmp/out.txt) or ends in a file extension with a letter
+// (README.md); "file://" links count too. A trailing ":line:col" is dropped.
+private val pathChars = Regex("""[A-Za-z0-9._~/+@%=,-]""")
+private val fileExt = Regex("""\.[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]{0,7}$""")
+
+/** The file path under [cellIndex] on its row, if any. */
+internal fun TerminalSnapshot.pathAt(cellIndex: Int): String? {
+    if (cols <= 0 || cellIndex !in codepoints.indices) return null
+    val row = cellIndex / cols
+    val line = StringBuilder()
+    for (i in row * cols until (row + 1) * cols) {
+        if (isSpacerContinuation(i)) { line.append('\u0000'); continue }
+        val cp = codepoints[i]
+        line.append(if (cp == 0) " " else glyphAt(i).take(1))
+    }
+    val at = cellIndex - row * cols
+    fun ok(c: Char) = pathChars.matches(c.toString())
+    if (at >= line.length || !ok(line[at])) return null
+    var a = at; var b = at
+    while (a > 0 && ok(line[a - 1])) a--
+    while (b < line.length - 1 && ok(line[b + 1])) b++
+    var p = line.substring(a, b + 1)
+    if (p.startsWith("file:")) p = p.removePrefix("file:").replace(Regex("^//[^/]*"), "")
+    p = p.replace(Regex("""(:\d+)+$"""), "").trimEnd('.', ',', ':')
+    if (p.length < 3 || p.startsWith("http") || p.all { it.isDigit() || it == '.' }) return null
+    val looksLikePath = (p.contains('/') && p.any { it.isLetter() }) || fileExt.containsMatchIn(p)
+    return p.takeIf { looksLikePath }
+}

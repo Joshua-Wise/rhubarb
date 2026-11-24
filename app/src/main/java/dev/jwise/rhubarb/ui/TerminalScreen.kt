@@ -238,6 +238,8 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     // for this, so ask every second or so while the pane is open.
     var passwordPrompt by remember { mutableStateOf(false) }
     var downloading by remember { mutableStateOf(false) }
+    // A file path long-pressed in the terminal: the download sheet opens on it.
+    var downloadPath by remember { mutableStateOf<String?>(null) }
 
     // Find in scrollback (Ghostty renderer): matches oldest first; the newest is shown first.
     var finding by remember { mutableStateOf(false) }
@@ -382,7 +384,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                 onInput = { s -> send(s) },
                 ready = ready,
                 log = { s -> android.util.Log.i("TermJS", s); if (s.startsWith("js error") || s.startsWith("waiting")) jsLog = s },
-                tap = { post { if (compose) runCatching { messageFocus.requestFocus() } else inputView.showKeyboard() } },
+                tap = { post { if (!app.settings.tapToType.value.value) Unit else if (compose) runCatching { messageFocus.requestFocus() } else inputView.showKeyboard() } },
                 wheel = { n, c, r -> wheel(n, c, r) },
             ), "Android")
             // Only the xterm.js renderer uses the page; with Ghostty it would sit unsized and log.
@@ -568,11 +570,13 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
                         ghostty = ghostty, zoom = zoom, fitToWidth = !owned, background = palette.bg,
                         // With the message box, a tap puts the cursor there; the key bar's Keyboard
                         // chip still types straight into the terminal (vim, htop, menus).
-                        onTap = { if (finding) Unit else if (compose) runCatching { messageFocus.requestFocus() } else inputView.showKeyboard() },
+                        // With Tap to type off, only the keyboard key or the message box opens the keyboard.
+                        onTap = { if (finding || !app.settings.tapToType.value.value) Unit else if (compose) runCatching { messageFocus.requestFocus() } else inputView.showKeyboard() },
                         searchMatches = matches,
                         currentMatch = matches.getOrNull(matchIndex),
                         onWheelInput = { bytes -> send(String(bytes, Charsets.UTF_8)) },
                         onCanvasGrid = { canvasGrid = it },
+                        onDownload = { p -> downloadPath = p; downloading = true },
                     )
                 } else {
                     AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
@@ -684,7 +688,7 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
             }
         }
     }
-    if (downloading) DownloadSheet(h, sessionId, blockId, bl?.pwd, onDismiss = { downloading = false })
+    if (downloading) DownloadSheet(h, sessionId, blockId, downloadPath ?: bl?.pwd, onDismiss = { downloading = false; downloadPath = null })
 }
 
 data class PhoneGrid(val cols: Int, val rows: Int, val cellW: Int, val cellH: Int)

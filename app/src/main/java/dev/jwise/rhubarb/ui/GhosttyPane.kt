@@ -58,6 +58,8 @@ fun GhosttyPane(
     searchMatches: List<dev.jwise.rhubarb.ghostty.SearchMatch> = emptyList(),
     currentMatch: dev.jwise.rhubarb.ghostty.SearchMatch? = null,
     onCanvasGrid: (IntArray) -> Unit,
+    /** Download a file path long-pressed in the terminal (null: paths aren't offered). */
+    onDownload: ((String) -> Unit)? = null,
 ) {
     val snapshot by ghostty.snapshot.collectAsState()
     val scope = rememberCoroutineScope()
@@ -65,6 +67,7 @@ fun GhosttyPane(
     var selection by remember { mutableStateOf<TerminalSelection?>(null) }
     var selectedText by remember { mutableStateOf<String?>(null) }
     var link by remember { mutableStateOf<String?>(null) }
+    var file by remember { mutableStateOf<String?>(null) }
     val bg = Color(android.graphics.Color.parseColor("#$background"))
     BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         val snap = snapshot
@@ -85,6 +88,7 @@ fun GhosttyPane(
                 onSelectionChange = { selection = it },
                 onSelectionChanged = { selectedText = it?.text },
                 onLinkLongPress = { link = it },
+                onPathLongPress = if (onDownload != null) { p -> file = p } else null,
                 searchMatches = searchMatches,
                 currentMatch = currentMatch,
                 onTap = onTap,
@@ -95,6 +99,7 @@ fun GhosttyPane(
             )
         }
         link?.let { url -> LinkSheet(url, onDismiss = { link = null }) }
+        file?.let { p -> FileSheet(p, onDownload = { file = null; onDownload?.invoke(p) }, onDismiss = { file = null }) }
         if (selection != null) {
             Surface(
                 Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
@@ -143,6 +148,26 @@ fun ghosttyColors(p: TermPalette, macThemeJson: String?): GhosttyTerminal.Colors
         }
     }
     return GhosttyTerminal.colors(fg, bg, cursor, ansi)
+}
+
+/** What to do with a file path long-pressed in the terminal. */
+@Composable
+private fun FileSheet(path: String, onDownload: () -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Sym.InsertDriveFile, null) },
+        title = { Text(path.trimEnd('/').substringAfterLast('/').ifEmpty { path }) },
+        text = { Text(path, style = MaterialTheme.typography.bodyMedium, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) },
+        confirmButton = { TextButton(onClick = onDownload) { Text("Download") } },
+        dismissButton = {
+            TextButton(onClick = {
+                onDismiss()
+                context.getSystemService(android.content.ClipboardManager::class.java)
+                    .setPrimaryClip(android.content.ClipData.newPlainText("Path", path))
+            }) { Text("Copy") }
+        },
+    )
 }
 
 /** What to do with a link long-pressed in the terminal. */

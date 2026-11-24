@@ -528,6 +528,12 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 if (wi in 0 until wins.size - 1) MenuItem("Move tab down", Sym.ArrowDownward) {
                                     act("move it") { it.moveWindow(p.sessionId, p.windowId, wins.getOrNull(wi + 2)?.windowId) }
                                 }
+                                // Read / unread, as in a mail app: for a pane that asked, finished or failed.
+                                if (unread(p)) MenuItem("Mark as read", Sym.Check) {
+                                    menuFor = null; app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt)
+                                } else if (live[p.blockId]?.top?.state in setOf("blocked", "done", "error")) MenuItem("Mark as unread", Sym.MarkUnread) {
+                                    menuFor = null; app.settings.markUnseen(p.blockId)
+                                }
                                 MenuItem("Share output", Sym.Share) {
                                     act("share it") { sharePaneText(ctx, it, p.sessionId, p.blockId, p.window) }
                                 }

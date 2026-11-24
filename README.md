@@ -73,12 +73,14 @@ GitHub builds are signed differently and can't update each other, so stick with 
 - **Message box** in every pane: one wide pill like the Claude app, with autocorrect: + to attach
   a photo or any file, the text, Enter/Send/Stop, and a mic for dictation through Android's own
   speech-to-text. Tapping the terminal puts the cursor there; the key bar's Keyboard chip still
-  types straight into the terminal for vim and menus. Settings → Terminal → Message box turns it off.
+  types straight into the terminal for vim and menus. Settings → Terminal → Message box turns it off,
+  and Tap to type off keeps the keyboard closed until you ask for it.
 - **Feels like Android**: a docked bottom bar on Home (Settings, show/hide Needs you, New session,
   Hosts, Search), swipe a tab left on Home to close it, predictive back, Material You
   colours, and a pane that runs edge to edge with a "jump to latest" button when you scroll back.
 - **Download files from the Mac**: ⋮ → Download a file browses the pane's machine from its
-  folder; save, open or share what you pick. Needs Rex API revision 13.
+  folder; save, open or share what you pick. Or long-press a file path in the terminal
+  (`src/app.ts`, `~/notes.md`) and tap Download. Needs Rex API revision 13.
 - **Programs can copy to the phone**: text a program copies with OSC 52 (Neovim, tmux) lands on
   the phone's clipboard while its pane is open. Programs' progress bars (OSC 9;4) show on the
   pane and on Home, the bell buzzes, and at a password prompt the keyboard turns into a password

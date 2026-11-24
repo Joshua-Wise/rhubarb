@@ -15,3 +15,6 @@ app/src/main/jniLibs/
 *.jks
 *.keystore
 keystore.properties
+
+# /brag launch videos (output and build files)
+brag-output*/

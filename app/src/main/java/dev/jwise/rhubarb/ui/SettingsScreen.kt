@@ -199,15 +199,16 @@ fun SettingsScreen(onBack: () -> Unit, onChangeServer: () -> Unit) {
             SectionHeader("Terminal")
             val renderer by st.renderer.collectAsState()
             val fitToPhone by st.fitToPhone.collectAsState()
-            FlagItem(0, 5, st.messageBox, Sym.Edit, "Message box", "Type with autocorrect")
-            GroupItem(1, 5,
+            FlagItem(0, 6, st.messageBox, Sym.Edit, "Message box", "Type with autocorrect")
+            FlagItem(1, 6, st.tapToType, Sym.Keyboard, "Tap to type", "Tapping the terminal opens the keyboard")
+            GroupItem(2, 6,
                 leading = { Icon(Sym.PhoneAndroid, null) },
                 headline = { Text("Fit to phone") },
                 supporting = { Text("Resize panes while open") },
                 trailing = { Switch(fitToPhone, onCheckedChange = { st.setFitToPhone(it) }) })
-            FlagItem(2, 5, st.programClipboard, Sym.ContentCopy, "Clipboard", "Let programs copy to this phone")
-            FlagItem(3, 5, st.bellVibrate, Sym.Vibration, "Bell", "Vibrate")
-            GroupItem(4, 5,
+            FlagItem(3, 6, st.programClipboard, Sym.ContentCopy, "Clipboard", "Let programs copy to this phone")
+            FlagItem(4, 6, st.bellVibrate, Sym.Vibration, "Bell", "Vibrate")
+            GroupItem(5, 6,
                 leading = { Icon(Sym.Code, null) },
                 headline = { Text("Renderer") },
                 supporting = {

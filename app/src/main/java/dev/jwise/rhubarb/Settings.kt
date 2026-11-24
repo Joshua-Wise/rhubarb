@@ -112,6 +112,8 @@ class Settings(private val ctx: Context) {
     val claudeBar = Flag("claude_bar", true)
     /** Panes open with the message box (autocorrect, dictation) instead of typing into the terminal. */
     val messageBox = Flag("message_box", true)
+    /** Tapping the terminal opens the keyboard; off, only the keyboard key or the message box does. */
+    val tapToType = Flag("tap_to_type", true)
     /** An ongoing notification (and Android 16 status-bar chip) while an agent works. */
     val liveProgress = Flag("live_progress", true)
     /** Home's "Needs you" board: agents grouped by what they need, above the session list. */
@@ -128,6 +130,12 @@ class Settings(private val ctx: Context) {
     private val _seen = flow(decodeSeen(p.getString("seen", null)))
     /** For each pane, the status update the user has seen (opened the pane or cleared its card). */
     val seen: StateFlow<Map<String, String>> = _seen
+    /** Shows the pane's last status as new again (Home's unread dot, and the board for finished work). */
+    fun markUnseen(blockId: String) {
+        if (blockId !in _seen.value) return
+        val m = _seen.value - blockId
+        p.edit().putString("seen", org.json.JSONObject(m).toString()).apply(); _seen.value = m
+    }
     fun markSeen(blockId: String, stamp: String?) {
         if (stamp == null || _seen.value[blockId] == stamp) return
         val m = (_seen.value - blockId) + (blockId to stamp)
