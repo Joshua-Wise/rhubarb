@@ -38,6 +38,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -162,13 +164,23 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     val boardOn by app.settings.board.value.collectAsState()
     val answerOn by app.settings.answerButtons.value.collectAsState()
     val seen by app.settings.seen.collectAsState()
+    val pinned by app.settings.pinned.collectAsState()
     fun unseen(p: Pane) = live[p.blockId]?.top?.let { seen[p.blockId] != it.updatedAt } == true
-    val groups = listOf(
-        "Needs you" to attention,
-        "Failed" to panes.filter { live[it.blockId]?.top?.state == "error" && unseen(it) },
-        "Finished" to panes.filter { live[it.blockId]?.top?.state == "done" && unseen(it) },
-        "Working" to panes.filter { live[it.blockId]?.top?.state == "working" },
-    ).filter { it.second.isNotEmpty() }
+    /** Changed since you last opened it, in a way worth a look (asking, finished or failed). */
+    fun unread(p: Pane) = unseen(p) && live[p.blockId]?.top?.state in setOf("blocked", "done", "error")
+    /** The board group a pane belongs to by its state ("Idle" when it's on the board only because it's pinned). */
+    fun groupOf(p: Pane) = when (live[p.blockId]?.top?.state) {
+        "blocked" -> "Needs you"
+        "error" -> if (unseen(p)) "Failed" else "Idle"
+        "done" -> if (unseen(p)) "Finished" else "Idle"
+        "working" -> "Working"
+        else -> "Idle"
+    }
+    // Pinned agents first, whatever they're doing; the rest by what they need.
+    val pinnedPanes = panes.filter { it.blockId in pinned }
+    val groups = (listOf("Pinned" to pinnedPanes) + listOf("Needs you", "Failed", "Finished", "Working").map { g ->
+        g to panes.filter { it.blockId !in pinned && groupOf(it) == g }
+    }).filter { it.second.isNotEmpty() }
     // Claude Code's menus in waiting panes, read off their screens for answer buttons.
     var prompts by remember { mutableStateOf(emptyMap<String, dev.jwise.rhubarb.agent.MenuPrompt>()) }
     val waitingKey = attention.map { it.blockId + "@" + live[it.blockId]?.top?.updatedAt }
@@ -278,11 +290,28 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                 if (boardOn) for ((group, list) in groups) {
                     item(key = "g:$group") { SectionHeader("$group · ${list.size}") }
                     itemsIndexed(list, key = { _, p -> "b:$group:" + p.blockId }) { _, p ->
-                        val clearable = group == "Finished" || group == "Failed"
+                        val cardGroup = groupOf(p)
+                        val clearable = cardGroup == "Finished" || cardGroup == "Failed"
+                        // Right: pin or unpin. Left: clear a finished or failed card; send Esc to an agent
+                        // that's asking or working (declines the question, or stops it).
+                        val canEsc = cardGroup == "Needs you" || cardGroup == "Working"
+                        val isPinned = p.blockId in pinned
                         val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState()
                         LaunchedEffect(swipe.currentValue) {
-                            if (swipe.currentValue != androidx.compose.material3.SwipeToDismissBoxValue.Settled) {
-                                app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt)
+                            when (swipe.currentValue) {
+                                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> {
+                                    app.settings.togglePin(p.blockId); swipe.reset()
+                                }
+                                androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> when {
+                                    clearable -> { app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt); if (isPinned) swipe.reset() }
+                                    canEsc -> {
+                                        hub?.let { h -> scope.launch { runCatching { h.write(p.sessionId, p.blockId, "\u001b") } } }
+                                        android.widget.Toast.makeText(ctx, "Sent Esc to ${p.window}", android.widget.Toast.LENGTH_SHORT).show()
+                                        swipe.reset()
+                                    }
+                                    else -> swipe.reset()
+                                }
+                                else -> Unit
                             }
                         }
                         androidx.compose.material3.SwipeToDismissBox(
@@ -290,15 +319,23 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
                                 placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                                 fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec()),
-                            state = swipe, gesturesEnabled = clearable,
+                            state = swipe, enableDismissFromEndToStart = clearable || canEsc,
                             backgroundContent = {
-                                if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
-                                    SwipeBackground(Sym.Check, "Clear", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                                when (swipe.dismissDirection) {
+                                    androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd ->
+                                        SwipeBackground(Sym.PushPin, if (isPinned) "Unpin" else "Pin", MaterialTheme.colorScheme.primaryContainer,
+                                            MaterialTheme.colorScheme.onPrimaryContainer, atStart = true)
+                                    androidx.compose.material3.SwipeToDismissBoxValue.EndToStart ->
+                                        if (clearable) SwipeBackground(Sym.Check, "Clear", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                                        else SwipeBackground(Sym.Close, "Esc", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                                    else -> Unit
+                                }
                             },
                         ) {
                         BoardCard(
-                            p, live[p.blockId], group,
-                            prompt = prompts[p.blockId].takeIf { group == "Needs you" },
+                            p, live[p.blockId], cardGroup,
+                            unread = unread(p), pinned = isPinned,
+                            prompt = prompts[p.blockId].takeIf { cardGroup == "Needs you" },
                             busy = answeringIn == p.blockId,
                             onOpen = { onOpen(p.sessionId, p.blockId) },
                             onClear = { app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt) },
@@ -417,7 +454,10 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 onLongClick = { menuFor = "p:" + p.blockId },
                                 leading = { ProgramAvatar(prog, top) },
                                 headline = {
-                                    Text(p.window + if (p.multi) " · ${p.label}" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (unread(p)) { UnreadDot(); Spacer(Modifier.width(8.dp)) }
+                                        Text(p.window + if (p.multi) " · ${p.label}" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 },
                                 supporting = {
                                     val line = top?.msg ?: l?.title?.ifBlank { null } ?: l?.pwd?.removePrefix("file://")?.substringAfter("/Users/")?.let { "~/" + it.substringAfter('/') }
@@ -602,6 +642,7 @@ private fun ago(stamp: String?): String? = try {
 @Composable
 private fun BoardCard(
     p: Pane, l: dev.jwise.rhubarb.rex.BlockLive?, group: String,
+    unread: Boolean, pinned: Boolean,
     prompt: dev.jwise.rhubarb.agent.MenuPrompt?, busy: Boolean,
     onOpen: () -> Unit, onClear: () -> Unit,
     onAnswer: (dev.jwise.rhubarb.agent.MenuPrompt, dev.jwise.rhubarb.agent.MenuOption) -> Unit,
@@ -623,8 +664,12 @@ private fun BoardCard(
                 ProgramAvatar(prog, top)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("${prog.name} · ${statusLabel(top) ?: group}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (unread) { UnreadDot(); Spacer(Modifier.width(6.dp)) }
+                        Text("${prog.name} · ${statusLabel(top) ?: group}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (pinned) { Spacer(Modifier.width(6.dp)); Icon(Sym.PushPin, "Pinned", Modifier.size(14.dp)) }
+                    }
                     Text(listOfNotNull("${p.session} › ${p.window}", ago(top?.updatedAt)).joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -662,15 +707,26 @@ private fun BoardCard(
 
 /** What shows under a row while it's swiped: a coloured strip with an icon and label at the end. */
 @Composable
-internal fun SwipeBackground(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color) {
+internal fun SwipeBackground(
+    icon: androidx.compose.ui.graphics.vector.ImageVector, label: String,
+    bg: androidx.compose.ui.graphics.Color, fg: androidx.compose.ui.graphics.Color, atStart: Boolean = false,
+) {
     Row(
         Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 1.dp)
             .background(bg, MaterialTheme.shapes.large).padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (atStart) Arrangement.Start else Arrangement.End, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.width(8.dp))
-        Icon(icon, null, tint = fg)
+        if (atStart) { Icon(icon, null, tint = fg); Spacer(Modifier.width(8.dp)); Text(label, color = fg, style = MaterialTheme.typography.labelLarge) }
+        else { Text(label, color = fg, style = MaterialTheme.typography.labelLarge); Spacer(Modifier.width(8.dp)); Icon(icon, null, tint = fg) }
     }
+}
+
+/** Changed since you last looked (Herdr-style unread mark). */
+@Composable
+private fun UnreadDot() {
+    // Blue like a mail app's unread mark, readable on the board's tinted cards in both themes.
+    val blue = if (isDark()) androidx.compose.ui.graphics.Color(0xFF7DB4FF) else androidx.compose.ui.graphics.Color(0xFF1A63E8)
+    androidx.compose.foundation.layout.Box(Modifier.size(9.dp).background(blue, androidx.compose.foundation.shape.CircleShape)
+        .then(androidx.compose.ui.Modifier.semantics { contentDescription = "Unread" }))
 }
 

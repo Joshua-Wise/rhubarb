@@ -117,6 +117,14 @@ class Settings(private val ctx: Context) {
     /** Home's "Needs you" board: agents grouped by what they need, above the session list. */
     val board = Flag("board", true)
 
+    private val _pinned = flow(p.getString("pinned", null)?.split(',')?.filter { it.isNotEmpty() }?.toSet() ?: emptySet())
+    /** Panes pinned to the top of Home's board (swipe a card right). */
+    val pinned: StateFlow<Set<String>> = _pinned
+    fun togglePin(blockId: String) {
+        val s = if (blockId in _pinned.value) _pinned.value - blockId else _pinned.value + blockId
+        p.edit().putString("pinned", s.joinToString(",")).apply(); _pinned.value = s
+    }
+
     private val _seen = flow(decodeSeen(p.getString("seen", null)))
     /** For each pane, the status update the user has seen (opened the pane or cleared its card). */
     val seen: StateFlow<Map<String, String>> = _seen
