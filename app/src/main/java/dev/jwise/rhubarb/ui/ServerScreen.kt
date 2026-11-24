@@ -106,13 +106,11 @@ fun ServerScreen(onSaved: () -> Unit) {
     }
 }
 
-/** The launcher icon (its adaptive layers, cropped to the visible part) as a rounded square. */
+/** The launcher icon (its colour and foreground layer, cropped to the visible part) as a rounded square. */
 @Composable
 private fun AppIcon(modifier: Modifier) {
-    Box(modifier.clip(RoundedCornerShape(24.dp))) {
-        for (layer in listOf(dev.jwise.rhubarb.R.mipmap.ic_launcher_background, dev.jwise.rhubarb.R.mipmap.ic_launcher_foreground)) {
-            Image(painterResource(layer), null, Modifier.fillMaxSize().scale(1.5f), contentScale = ContentScale.Crop)
-        }
+    Box(modifier.clip(RoundedCornerShape(24.dp)).background(androidx.compose.ui.res.colorResource(dev.jwise.rhubarb.R.color.ic_launcher_background))) {
+        Image(painterResource(dev.jwise.rhubarb.R.mipmap.ic_launcher_foreground), null, Modifier.fillMaxSize().scale(1.5f), contentScale = ContentScale.Crop)
     }
 }
 
