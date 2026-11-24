@@ -156,6 +156,20 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
         }
     }
     val attention = panes.filter { live[it.blockId]?.top?.state == "blocked" }
+    // Helper agents (split into a lead agent's tab, or working in a worktree of its folder) sit under it.
+    val helperOf = remember(panes, live) {
+        dev.jwise.rhubarb.agent.HelperAgents.parents(panes.map { p ->
+            val l = live[p.blockId]
+            dev.jwise.rhubarb.agent.HelperAgents.PaneInfo(p.blockId, p.sessionId, p.windowId, programOf(l).agent,
+                dev.jwise.rhubarb.agent.HelperAgents.path(l?.pwd))
+        })
+    }
+    val byId = panes.associateBy { it.blockId }
+    /** "Helper of Rhubarb" for a helper agent, naming its lead's tab. */
+    fun helperLine(p: Pane): String? = helperOf[p.blockId]?.let { byId[it] }?.let { lead ->
+        "Helper of " + lead.window + if (lead.multi) " · ${lead.label}" else ""
+    }
+    fun nested(list: List<Pane>) = dev.jwise.rhubarb.agent.HelperAgents.nest(list, { it.blockId }, helperOf)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val topScroll = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -178,8 +192,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     }
     // Pinned agents first, whatever they're doing; the rest by what they need.
     val pinnedPanes = panes.filter { it.blockId in pinned }
-    val groups = (listOf("Pinned" to pinnedPanes) + listOf("Needs you", "Failed", "Finished", "Working").map { g ->
-        g to panes.filter { it.blockId !in pinned && groupOf(it) == g }
+    val groups = (listOf("Pinned" to nested(pinnedPanes)) + listOf("Needs you", "Failed", "Finished", "Working").map { g ->
+        g to nested(panes.filter { it.blockId !in pinned && groupOf(it) == g })
     }).filter { it.second.isNotEmpty() }
     // Claude Code's menus in waiting panes, read off their screens for answer buttons.
     var prompts by remember { mutableStateOf(emptyMap<String, dev.jwise.rhubarb.agent.MenuPrompt>()) }
@@ -334,7 +348,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                         ) {
                         BoardCard(
                             p, live[p.blockId], cardGroup,
-                            unread = unread(p), pinned = isPinned,
+                            unread = unread(p), pinned = isPinned, helper = helperLine(p),
                             prompt = prompts[p.blockId].takeIf { cardGroup == "Needs you" },
                             busy = answeringIn == p.blockId,
                             onOpen = { onOpen(p.sessionId, p.blockId) },
@@ -372,7 +386,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                 }
 
                 for (s in sessions) {
-                    val sPanes = panes.filter { it.sessionId == s.sessionId }
+                    val sPanes = nested(panes.filter { it.sessionId == s.sessionId })
                     val isCollapsed = s.sessionId in collapsed.value
                     item(key = "h" + s.sessionId) {
                         val rot by animateFloatAsState(if (isCollapsed) -90f else 0f, label = "chevron")
@@ -452,7 +466,12 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 index = i, count = sPanes.size,
                                 onClick = { onOpen(p.sessionId, p.blockId) },
                                 onLongClick = { menuFor = "p:" + p.blockId },
-                                leading = { ProgramAvatar(prog, top) },
+                                leading = {
+                                    if (p.blockId in helperOf) Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Sym.SubdirectoryArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.width(6.dp)); ProgramAvatar(prog, top)
+                                    } else ProgramAvatar(prog, top)
+                                },
                                 headline = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (unread(p)) { UnreadDot(); Spacer(Modifier.width(8.dp)) }
@@ -462,6 +481,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 supporting = {
                                     val line = top?.msg ?: l?.title?.ifBlank { null } ?: l?.pwd?.removePrefix("file://")?.substringAfter("/Users/")?.let { "~/" + it.substringAfter('/') }
                                     Column {
+                                        helperLine(p)?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1) }
                                         line?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                                         // A program's own progress (OSC 9;4), such as a build or download.
                                         l?.progress?.let { pct ->
@@ -557,11 +577,11 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
 
     if (searching) {
         val q = query.trim().lowercase()
-        val results = if (q.isEmpty()) emptyList() else panes.filter { p ->
+        val results = if (q.isEmpty()) emptyList() else nested(panes.filter { p ->
             val l = live[p.blockId]
             listOfNotNull(p.session, p.window, p.label, l?.title, l?.pwd, l?.top?.msg, l?.top?.app, programOf(l).name)
                 .any { it.lowercase().contains(q) }
-        }
+        })
         fun close() { searching = false; query = "" }
         SearchBar(
             inputField = {
@@ -585,7 +605,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                         onClick = { close(); onOpen(p.sessionId, p.blockId) },
                         leading = { ProgramAvatar(programOf(l), top) },
                         headline = { Text(p.window + if (p.multi) " · ${p.label}" else "") },
-                        supporting = { Text(listOfNotNull(p.session, top?.msg ?: l?.title?.ifBlank { null }).joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        supporting = { Text(listOfNotNull(helperLine(p), p.session, top?.msg ?: l?.title?.ifBlank { null }).joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         trailing = { statusLabel(top)?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = statusColor(top?.state)) } },
                     )
                 }
@@ -642,7 +662,7 @@ private fun ago(stamp: String?): String? = try {
 @Composable
 private fun BoardCard(
     p: Pane, l: dev.jwise.rhubarb.rex.BlockLive?, group: String,
-    unread: Boolean, pinned: Boolean,
+    unread: Boolean, pinned: Boolean, helper: String?,
     prompt: dev.jwise.rhubarb.agent.MenuPrompt?, busy: Boolean,
     onOpen: () -> Unit, onClear: () -> Unit,
     onAnswer: (dev.jwise.rhubarb.agent.MenuPrompt, dev.jwise.rhubarb.agent.MenuOption) -> Unit,
@@ -656,7 +676,8 @@ private fun BoardCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = container),
         shape = MaterialTheme.shapes.extraLarge,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        // A helper sits indented under its lead.
+        modifier = Modifier.fillMaxWidth().padding(start = if (helper != null) 40.dp else 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         onClick = onOpen,
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -670,7 +691,7 @@ private fun BoardCard(
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         if (pinned) { Spacer(Modifier.width(6.dp)); Icon(Sym.PushPin, "Pinned", Modifier.size(14.dp)) }
                     }
-                    Text(listOfNotNull("${p.session} › ${p.window}", ago(top?.updatedAt)).joinToString(" · "),
+                    Text(listOfNotNull(helper ?: "${p.session} › ${p.window}", ago(top?.updatedAt)).joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
