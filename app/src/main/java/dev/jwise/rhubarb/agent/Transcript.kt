@@ -258,7 +258,9 @@ class TranscriptFollower(
                 launch(start = CoroutineStart.UNDISPATCHED) {
                     s.events.collect { ev ->
                         when (ev) {
-                            is TermEvent.Resize -> if (!started) { started = true; h.write(sessionId, bid, "\r") }
+                            // Say go once the stream has loaded the screen: output that arrives while it's
+                            // still loading is dropped (a fast server can answer that quickly).
+                            is TermEvent.Resize -> if (!started) { started = true; launch { delay(400); h.write(sessionId, bid, "\r") } }
                             is TermEvent.Output -> {
                                 lastOut = System.currentTimeMillis()
                                 // Decode only whole lines (a character can be split across chunks);

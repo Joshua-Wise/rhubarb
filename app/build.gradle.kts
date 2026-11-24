@@ -12,8 +12,8 @@ android {
         applicationId = "dev.jwise.rhubarb"
         minSdk = 28
         targetSdk = 37
-        versionCode = 49
-        versionName = "0.19.1"
+        versionCode = 50
+        versionName = "0.20.0"
         // Ship librexterm's symbol table inside the bundle so Play can name native frames.
         ndk { debugSymbolLevel = "SYMBOL_TABLE" }
     }

@@ -301,6 +301,24 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                     item { Centered { ContainedLoadingIndicator() } }
                 }
 
+                // The demo says so, and offers the way to a real Mac.
+                if (dev.jwise.rhubarb.rex.Demo.isDemo(app.serverUrl)) item(key = "demo") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("You're trying the demo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("These sessions are made up and nothing runs anywhere. Answer Claude's question, swipe a card, or open a pane and switch to chat.",
+                                style = MaterialTheme.typography.bodyMedium)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                Button(onClick = onAddServer) { Text("Connect your Mac") }
+                            }
+                        }
+                    }
+                }
+
                 if (boardOn) for ((group, list) in groups) {
                     item(key = "g:$group") { SectionHeader("$group · ${list.size}") }
                     itemsIndexed(list, key = { _, p -> "b:$group:" + p.blockId }) { _, p ->

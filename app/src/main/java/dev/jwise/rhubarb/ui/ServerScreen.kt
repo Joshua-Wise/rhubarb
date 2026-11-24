@@ -86,9 +86,18 @@ fun ServerScreen(onSaved: () -> Unit) {
             Button(onClick = { sheet = false }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Text("Connect your Mac", style = MaterialTheme.typography.titleMedium)
             }
-            TextButton(onClick = { sheet = true }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp)) {
-                Icon(Sym.QrCodeScanner, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                Text("Scan pairing code", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp), horizontalArrangement = Arrangement.Center) {
+                TextButton(onClick = { sheet = true }) {
+                    Icon(Sym.QrCodeScanner, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text("Scan pairing code", style = MaterialTheme.typography.titleSmall)
+                }
+                TextButton(onClick = {
+                    // A pretend Mac inside the app: look around before setting anything up.
+                    val app = RexApp.instance
+                    app.settings.setHostLabel("Demo Mac")
+                    app.serverUrl = dev.jwise.rhubarb.rex.Demo.URL
+                    onSaved()
+                }) { Text("Try the demo", style = MaterialTheme.typography.titleSmall) }
             }
         }
     }

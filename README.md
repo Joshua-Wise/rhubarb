@@ -26,6 +26,10 @@ GitHub builds are signed differently and can't update each other, so stick with 
 
 ## What it does
 
+- **Try it without a Mac**: **Try the demo** on the welcome screen opens a pretend Mac inside the
+  app, with made-up sessions: Claude Code asking to run tests (with a teammate beside it), Codex
+  mid-refactor, a failed deploy and a shell. Answer, swipe, open chat and type; nothing leaves the
+  phone. **Connect your Mac** on Home leaves it.
 - **Sessions at a glance**: every session, window, and terminal on your Mac, with each
   terminal's title, directory, and live program status.
 - **Start and manage work from the phone**: the + button starts a new session, and the + on a
@@ -51,8 +55,15 @@ GitHub builds are signed differently and can't update each other, so stick with 
   and Settings sets which one panes open in. It reads the agent's own session files on the Mac
   through a hidden helper that Rhubarb starts in the session and closes when you leave the pane or the app.
 - **Needs you board**: Home groups agents by what they need (waiting on you, failed, finished,
-  working) with how long ago each changed. Finished work stays until you open it or clear it
-  (or swipe it away). The eye in Home's bottom bar shows or hides it.
+  working) with how long ago each changed. Finished work stays until you open it or clear it.
+  Swipe a card right to pin it to the top; swipe left to clear it, or to send Esc to an agent
+  that's asking or working. A blue dot marks agents that asked, finished or failed since you last
+  looked. The eye in Home's bottom bar shows or hides the board.
+- **Helper agents under their lead**: an agent split into another agent's tab (as agent teams
+  do), or working in a worktree of its folder (`.claude/worktrees`, `.worktrees`), shows indented
+  under that agent on the board, in the list and in search. Rex doesn't record which pane started
+  which, so this goes by where they run.
+- **Tablets and foldables**: on a wide screen Home and the open pane sit side by side.
 - **Live progress**: while an agent works, a silent notification shows its progress and a timer;
   on Android 16 it's also a chip in the status bar. Needs Settings → Notifications → Background when Rhubarb is closed.
 - **Message box** in every pane: one wide pill like the Claude app, with autocorrect: + to attach
@@ -148,7 +159,9 @@ adb install -r ~/Library/Caches/rexAndroid/app/outputs/apk/debug/app-debug.apk
 ## Phone setup
 
 1. Install Tailscale on your Android device and sign in with the same account as the Mac.
-2. Open Rhubarb and enter the server address, for example `my-mac-rex.tailnet.ts.net`.
+2. Open Rhubarb and enter the server address, for example `my-mac-rex.tailnet.ts.net`, or scan
+   the code from `rex server tailscale pair`. A Rex server listening on your local network over
+   plain HTTP works too (an IP address or `.local` name); the form warns that it isn't encrypted.
 3. Optional: turn on **Settings → Notifications → Background** to get alerts while the app is closed. This
    keeps a foreground-service connection open, because Rex has no push channel to phones.
 

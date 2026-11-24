@@ -76,6 +76,9 @@ class RexControl(
         /** Accepts `host.ts.net`, `https://host.ts.net`, `host:port`, etc. Returns e.g. `wss://host.ts.net`. */
         private val localHost = Regex("""\d{1,3}(\.\d{1,3}){3}|ip6|localhost|.+\.local""", RegexOption.IGNORE_CASE)
 
+        /** Where sockets to [base] come from: the network, or the in-app demo server. */
+        fun sockets(base: String): okhttp3.WebSocket.Factory = if (Demo.isDemo(base)) DemoServer.instance else http
+
         fun normalizeBase(input: String): String {
             var s = input.trim().trimEnd('/')
             s = when {
@@ -149,7 +152,7 @@ class RexControl(
             .url("$baseUrl/api/control")
             .header("Sec-WebSocket-Protocol", "rex.control.v1")
             .build()
-        ws = http.newWebSocket(req, object : WebSocketListener() {
+        ws = sockets(baseUrl).newWebSocket(req, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 val hello = buildJsonObject {
                     put("type", "hello")

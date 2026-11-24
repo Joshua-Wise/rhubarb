@@ -136,7 +136,7 @@ class TerminalStream(
             .header("Sec-WebSocket-Protocol", "rex.data.terminal.v1")
             .build()
         var gotWelcome = false
-        ws = RexControl.http.newWebSocket(req, object : WebSocketListener() {
+        ws = RexControl.sockets(control.baseUrl).newWebSocket(req, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 webSocket.send(handshake.toByteString())
             }

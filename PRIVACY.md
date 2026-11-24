@@ -1,6 +1,6 @@
 # Rhubarb Privacy Policy
 
-_Last updated: November 14, 2026 (chat view added for version 0.19)_
+_Last updated: November 24, 2026 (demo and local-network servers added for version 0.20)_
 
 Rhubarb is an unofficial Android client for [Rex](https://superlogical.com), a terminal app for the Mac. It connects your Android device to a Rex server that you run yourself. Rhubarb is not affiliated with Superlogical.
 
@@ -29,6 +29,14 @@ Rhubarb connects only to the server addresses you enter. Over that connection it
 - Your device's name, so the server can show which device is connected.
 
 That server is yours. What happens to the data there is up to you and Rex's own policies. Rhubarb doesn't send any of it anywhere else.
+
+## The demo
+
+**Try the demo** runs a pretend Rex server inside the app. Its sessions and conversations are made up and built into the app; using it makes no network connections and sends nothing anywhere.
+
+## Local-network servers
+
+If you add a server by a local address over plain HTTP (an IP address or `.local` name), the connection isn't encrypted, so others on that network could see what you type and read. Rhubarb warns about this when you enter such an address. Connections over Tailscale are encrypted by WireGuard.
 
 ## Chat view
 
