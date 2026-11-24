@@ -180,7 +180,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     val seen by app.settings.seen.collectAsState()
     val pinned by app.settings.pinned.collectAsState()
     // The demo banner can be put away until the app is next opened.
-    var demoBannerHidden by remember { mutableStateOf(false) }
+    var demoBannerHidden by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     fun unseen(p: Pane) = live[p.blockId]?.top?.let { seen[p.blockId] != it.updatedAt } == true
     /** Changed since you last opened it, in a way worth a look (asking, finished or failed). */
     fun unread(p: Pane) = unseen(p) && live[p.blockId]?.top?.state in setOf("blocked", "done", "error")
