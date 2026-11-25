@@ -38,9 +38,11 @@ GitHub builds are signed differently and can't update each other, so stick with 
   terminal's title, directory, and live program status.
 - **Start and manage work from the phone**: the + button starts a new session, and the + on a
   session adds a tab (without switching the Mac to it). Choose the folder to start in (browsed on
-  the Mac) and what to start: a shell, Claude Code, Codex, OpenCode, Copilot or Gemini. Hold a pane
-  to rename, reorder, share its output, clear it or close its tab; hold a session's header to
-  rename, reorder or end it. Panes running coding agents show the agent's mark (Claude Code,
+  the Mac) and what to start: a shell, Claude Code, Codex, OpenCode, Copilot or Gemini. Hold a tab
+  and drag it to move it (the Mac's tab order changes too), or hold and let go for its menu:
+  rename, pin, share its output, clear it or close it. Swipe a tab left to close it, or right to
+  pin it to the top of its session on this phone. Hold a session's header to rename, reorder or
+  end it. Panes running coding agents show the agent's mark (Claude Code,
   Codex, Gemini, Copilot, OpenCode, Cursor, Qwen, Mistral, Ollama; most marks from Simple Icons).
 - **In a pane**: ⋮ → Find searches the screen and scrollback (matches highlighted, up/down to
   step through them); ⋮ also shares the screen and scrollback as text (a .txt file when it's
@@ -76,7 +78,7 @@ GitHub builds are signed differently and can't update each other, so stick with 
   types straight into the terminal for vim and menus. Settings → Terminal → Message box turns it off,
   and Tap to type off keeps the keyboard closed until you ask for it.
 - **Feels like Android**: a docked bottom bar on Home (Settings, show/hide Needs you, New session,
-  Hosts, Search), swipe a tab left on Home to close it, predictive back, Material You
+  Hosts, Search), swipe and drag gestures on Home's tabs, predictive back, Material You
   colours, and a pane that runs edge to edge with a "jump to latest" button when you scroll back.
 - **Download files from the Mac**: ⋮ → Download a file browses the pane's machine from its
   folder; save, open or share what you pick. Or long-press a file path in the terminal

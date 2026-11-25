@@ -69,6 +69,8 @@ fun GroupItem(
     trailing: (@Composable () -> Unit)? = null,
     /** The row that's open beside the list (split view). */
     selected: Boolean = false,
+    /** Extra gestures on the row, inside its click handling (e.g. hold to move). */
+    gestures: Modifier = Modifier,
 ) {
     val bg = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
     Surface(
@@ -81,7 +83,7 @@ fun GroupItem(
                 onLongClick != null -> Modifier.combinedClickable(onClick = onClick ?: {}, onLongClick = onLongClick)
                 onClick != null -> Modifier.clickable(onClick = onClick)
                 else -> Modifier
-            },
+            }.then(gestures),
             colors = ListItemDefaults.colors(containerColor = bg),
             headlineContent = headline,
             supportingContent = supporting,

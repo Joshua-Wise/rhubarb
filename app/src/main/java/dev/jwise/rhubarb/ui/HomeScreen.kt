@@ -26,6 +26,14 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.zIndex
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,6 +77,9 @@ import dev.jwise.rhubarb.rex.ConnState
 import dev.jwise.rhubarb.rex.TERMINAL
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+
+/** A tab row held and being dragged: where it started, how far it's moved, and where it would land. */
+private data class TabDrag(val sessionId: String, val blockId: String, val target: Int, val dy: Float, val height: Float)
 
 private data class Pane(val sessionId: String, val windowId: String, val blockId: String, val session: String, val window: String, val label: String, val multi: Boolean)
 
@@ -179,6 +190,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
     val answerOn by app.settings.answerButtons.value.collectAsState()
     val seen by app.settings.seen.collectAsState()
     val pinned by app.settings.pinned.collectAsState()
+    var drag by remember { mutableStateOf<TabDrag?>(null) }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     // The demo banner can be put away until the app is next opened.
     var demoBannerHidden by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     fun unseen(p: Pane) = live[p.blockId]?.top?.let { seen[p.blockId] != it.updatedAt } == true
@@ -408,7 +421,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                 }
 
                 for (s in sessions) {
-                    val sPanes = nested(panes.filter { it.sessionId == s.sessionId })
+                    // Pinned tabs first (on this phone only), then the session's own order.
+                    val sPanes = nested(panes.filter { it.sessionId == s.sessionId }).let { l -> l.filter { it.blockId in pinned } + l.filterNot { it.blockId in pinned } }
                     val isCollapsed = s.sessionId in collapsed.value
                     item(key = "h" + s.sessionId) {
                         val rot by animateFloatAsState(if (isCollapsed) -90f else 0f, label = "chevron")
@@ -459,12 +473,40 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                             val l = live[p.blockId]; val top = l?.top; val prog = programOf(l)
                             val wins = s.windows
                             val wi = wins.indexOfFirst { it.windowId == p.windowId }
-                            androidx.compose.foundation.layout.Box(Modifier.animateItem(
-                                fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-                                placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-                                fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec())) {
-                            // Swipe left to close the tab (asks first), as in Gmail.
-                            val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState()
+                            // While a row is held and dragged: it follows the finger, and the rows it passes
+                            // move out of its way.
+                            val isDragged = drag?.blockId == p.blockId
+                            val shift = drag?.takeIf { it.sessionId == s.sessionId && !isDragged }?.let { d ->
+                                val from = sPanes.indexOfFirst { it.blockId == d.blockId }
+                                when {
+                                    from < 0 -> 0f
+                                    i in (from + 1)..d.target -> -d.height
+                                    i in d.target until from -> d.height
+                                    else -> 0f
+                                }
+                            } ?: 0f
+                            val shiftAnim by androidx.compose.animation.core.animateFloatAsState(shift, label = "make room")
+                            androidx.compose.foundation.layout.Box(
+                                (if (isDragged) Modifier else Modifier.animateItem(
+                                    fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                                    placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                                    fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec()))
+                                    .zIndex(if (isDragged) 1f else 0f)
+                                    .graphicsLayer {
+                                        // Read the drag here, not from composition: the layer can redraw after it ends.
+                                        val d = drag?.takeIf { it.blockId == p.blockId }
+                                        translationY = d?.dy ?: shiftAnim
+                                        val lift = if (d != null) 1.02f else 1f
+                                        scaleX = lift; scaleY = lift; shadowElevation = if (d != null) 12f else 0f
+                                        shape = RoundedCornerShape(16.dp); clip = false
+                                    }) {
+                            // Swipe left to close the tab (asks first), as in Gmail; right to pin it. A pin swipe
+                            // is refused, so the row springs back by itself and then moves to the top.
+                            val isPinned = p.blockId in pinned
+                            @Suppress("DEPRECATION")
+                            val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState(confirmValueChange = { v ->
+                                if (v == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) { app.settings.togglePin(p.blockId); false } else true
+                            })
                             LaunchedEffect(swipe.currentValue) {
                                 if (swipe.currentValue == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
                                     confirm = Confirm("Close ${p.window}?",
@@ -478,17 +520,52 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 if (confirm == null && swipe.currentValue != androidx.compose.material3.SwipeToDismissBoxValue.Settled) swipe.reset()
                             }
                             androidx.compose.material3.SwipeToDismissBox(
-                                state = swipe, enableDismissFromStartToEnd = false,
+                                state = swipe, gesturesEnabled = drag == null,
                                 backgroundContent = {
-                                    if (swipe.dismissDirection != androidx.compose.material3.SwipeToDismissBoxValue.Settled)
-                                        SwipeBackground(Sym.Close, "Close tab", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                                    when (swipe.dismissDirection) {
+                                        androidx.compose.material3.SwipeToDismissBoxValue.EndToStart ->
+                                            SwipeBackground(Sym.Close, "Close tab", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                                        androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd ->
+                                            SwipeBackground(Sym.PushPin, if (isPinned) "Unpin" else "Pin to top", MaterialTheme.colorScheme.primaryContainer,
+                                                MaterialTheme.colorScheme.onPrimaryContainer, atStart = true)
+                                        else -> Unit
+                                    }
                                 },
                             ) {
                             GroupItem(
                                 index = i, count = sPanes.size,
                                 selected = p.blockId == selected,
                                 onClick = { onOpen(p.sessionId, p.blockId) },
-                                onLongClick = { menuFor = "p:" + p.blockId },
+                                // Hold and drag to move the tab (the Mac's order too); hold and let go for the menu.
+                                gestures = Modifier.holdToMove(p.blockId,
+                                    onLift = {
+                                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                        val h0 = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == p.blockId }?.size?.toFloat() ?: 200f
+                                        drag = TabDrag(s.sessionId, p.blockId, i, 0f, h0)
+                                    },
+                                    onMove = { dy ->
+                                        val d = drag ?: return@holdToMove
+                                        // Where the lifted row's middle is now, among this session's visible rows.
+                                        val infos = listState.layoutInfo.visibleItemsInfo
+                                        val me = infos.firstOrNull { it.key == p.blockId }
+                                        val mid = (me?.offset ?: 0) + d.height / 2 + d.dy + dy
+                                        val target = sPanes.indices.lastOrNull { k ->
+                                            val info = infos.firstOrNull { it.key == sPanes[k].blockId } ?: return@lastOrNull false
+                                            mid >= info.offset
+                                        } ?: 0
+                                        drag = d.copy(dy = d.dy + dy, target = target)
+                                    },
+                                    onDrop = { moved ->
+                                        val d = drag; drag = null
+                                        if (!moved) { menuFor = "p:" + p.blockId; return@holdToMove }
+                                        if (d == null || d.target == i) return@holdToMove
+                                        // Move the tab before the target row's tab (dropping lower: after it).
+                                        val targetWin = sPanes[d.target].windowId
+                                        if (targetWin == p.windowId) return@holdToMove
+                                        val order = wins.map { it.windowId }
+                                        val before = if (d.target > i) order.getOrNull(order.indexOf(targetWin) + 1) else targetWin
+                                        act("move it") { it.moveWindow(p.sessionId, p.windowId, before) }
+                                    }),
                                 leading = {
                                     if (p.blockId in helperOf) Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Sym.SubdirectoryArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -498,7 +575,9 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 headline = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (unread(p)) { UnreadDot(); Spacer(Modifier.width(8.dp)) }
-                                        Text(p.window + if (p.multi) " · ${p.label}" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(p.window + if (p.multi) " · ${p.label}" else "", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false))
+                                        if (isPinned) { Spacer(Modifier.width(6.dp)); Icon(Sym.PushPin, "Pinned", Modifier.size(16.dp)) }
                                     }
                                 },
                                 supporting = {
@@ -522,12 +601,7 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                 offset = androidx.compose.ui.unit.DpOffset(32.dp, 0.dp)) {
                                 MenuItem("Rename tab", Sym.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.window) }
                                 if (p.multi) MenuItem("Rename pane", Sym.Edit) { menuFor = null; renaming = Rename(p.sessionId, p.windowId, p.label, p.blockId) }
-                                if (wi > 0) MenuItem("Move tab up", Sym.ArrowUpward) {
-                                    act("move it") { it.moveWindow(p.sessionId, p.windowId, wins[wi - 1].windowId) }
-                                }
-                                if (wi in 0 until wins.size - 1) MenuItem("Move tab down", Sym.ArrowDownward) {
-                                    act("move it") { it.moveWindow(p.sessionId, p.windowId, wins.getOrNull(wi + 2)?.windowId) }
-                                }
+                                MenuItem(if (isPinned) "Unpin" else "Pin to top", Sym.PushPin) { menuFor = null; app.settings.togglePin(p.blockId) }
                                 // Read / unread, as in a mail app: for a pane that asked, finished or failed.
                                 if (unread(p)) MenuItem("Mark as read", Sym.Check) {
                                     menuFor = null; app.settings.markSeen(p.blockId, live[p.blockId]?.top?.updatedAt)
@@ -548,6 +622,8 @@ fun HomeScreen(onOpen: (String, String) -> Unit, onSettings: () -> Unit, onAddSe
                                         it.closeWindow(p.sessionId, p.windowId)
                                     }
                                 }
+                                Text("Hold and drag a tab to move it", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                             }
                             }
                         }
@@ -780,3 +856,32 @@ private fun UnreadDot() {
         .then(androidx.compose.ui.Modifier.semantics { contentDescription = "Unread" }))
 }
 
+/**
+ * Hold to lift a row, drag to move it, let go to drop it ([onDrop] with moved = true); hold and let
+ * go without moving gives moved = false (the row's menu). Placed inside the row's click handling,
+ * it consumes the gesture after the hold, so the release isn't also a tap and neither the list nor
+ * the swipe-to-close box moves.
+ */
+private fun Modifier.holdToMove(key: Any, onLift: () -> Unit, onMove: (Float) -> Unit, onDrop: (moved: Boolean) -> Unit) =
+    this.then(Modifier.pointerInput(key) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val held = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+            held.consume()
+            onLift()
+            var total = 0f
+            var moved = false
+            try {
+                while (true) {
+                    val ev = awaitPointerEvent()
+                    val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!ch.pressed) { ch.consume(); break }
+                    val dy = ch.positionChange().y
+                    total += dy
+                    if (kotlin.math.abs(total) > viewConfiguration.touchSlop) moved = true
+                    ch.consume()
+                    if (moved) onMove(dy)
+                }
+            } finally { onDrop(moved) }
+        }
+    })
