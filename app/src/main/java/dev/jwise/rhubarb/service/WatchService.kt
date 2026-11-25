@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
  */
 class WatchService : Service() {
     private var job: Job? = null
+    /** What the notification says now; re-posted as is when the service is started again. */
+    @Volatile private var status = "Connecting…"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -36,7 +38,9 @@ class WatchService : Service() {
         // Android can refuse (e.g. a restart while the app isn't allowed to start one): stop quietly;
         // opening the app starts it again.
         try {
-            ServiceCompat.startForeground(this, 1, buildNotification("Connecting…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            // Opening the app starts the service again (to bring it back after an update), so this
+            // keeps the current status rather than going back to "Connecting…".
+            ServiceCompat.startForeground(this, 1, buildNotification(status), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } catch (e: Exception) {
             android.util.Log.w("WatchService", "couldn't start in the foreground", e)
             stopSelf(); return START_NOT_STICKY
@@ -52,6 +56,7 @@ class WatchService : Service() {
                         is ConnState.Failed -> "Reconnecting: ${st.reason}"
                         ConnState.Idle -> "Idle"
                     }
+                    status = text
                     try { NotificationManagerCompat.from(this@WatchService).notify(1, buildNotification(text)) } catch (_: SecurityException) {}
                 }
             }

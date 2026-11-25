@@ -311,7 +311,16 @@ fun TerminalScreen(sessionId: String, blockId: String, onBack: () -> Unit) {
     val showChat = chatSource != null && (chatChoice ?: chatPref)
     // The reader stops with the screen (its helper is closed) but keeps what it has shown.
     DisposableEffect(follower) { onDispose { follower?.stop() } }
-    LaunchedEffect(follower, showChat, h) {
+    // Whenever the pane comes back on screen, make sure the chat reader is running (start() does
+    // nothing if it is); it's closed while the app is away.
+    var resumed by remember { mutableStateOf(0) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) resumed++ }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(follower, showChat, h, resumed) {
         if (follower == null || !showChat) return@LaunchedEffect
         val cwd = runCatching {
             h.control.blockCall(sessionId, blockId, "com.superlogical.terminal.process")?.jsonObject

@@ -421,8 +421,12 @@ object ChatFollowers {
     }
 
     suspend fun closeAll(hub: RexHub) {
+        // The app may be back on screen by the time this runs (leaving and returning quickly):
+        // then the chats stay open, and any closed in that moment are reopened.
+        if (dev.jwise.rhubarb.RexApp.instance.foreground) return
         val all = synchronized(this) { kept.values.toList() }
         for (f in all) f.closeNow(hub)
+        if (dev.jwise.rhubarb.RexApp.instance.foreground) resumeAll(hub)
     }
 }
 
