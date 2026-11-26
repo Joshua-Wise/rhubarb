@@ -48,11 +48,12 @@ No accounts, analytics, ads or tracking. Rhubarb talks only to the Rex servers y
 
 Rhubarb is not affiliated with Superlogical, Anthropic or OpenAI. Claude Code, Codex and other product names belong to their owners.
 
-## Production release notes (first public release)
+## Production release notes (first public release, 0.21.0, submitted 2026-11-26)
 
 Rhubarb's first public release.
 • Answer Claude Code and Codex from the pane, Home or a notification
 • Home groups agents by what they need; swipe to pin, clear or send Esc
+• Hold and drag to rearrange tabs
 • Chat view (experimental): read a session as a conversation
 • Try the demo before setting up your Mac
 • Tablets and foldables: Home and the pane side by side
