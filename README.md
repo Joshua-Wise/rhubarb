@@ -19,11 +19,10 @@ Screenshots are from the built-in demo (**Try the demo** on the welcome screen),
 
 ## Get it
 
-Rhubarb is in a closed test on Google Play ahead of its public release. To join:
+<a href="https://play.google.com/store/apps/details?id=dev.jwise.rhubarb"><img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="80"></a>
 
-1. Join the [tester group](https://groups.google.com/a/jwise.dev/g/rhubarb-testers) with the Google account on your phone.
-2. [Opt in to the test](https://play.google.com/apps/testing/dev.jwise.rhubarb).
-3. [Install from Google Play](https://play.google.com/store/apps/details?id=dev.jwise.rhubarb).
+Rhubarb is on [Google Play](https://play.google.com/store/apps/details?id=dev.jwise.rhubarb), free
+for Android 9 and later. No Mac yet? Tap **Try the demo** on the welcome screen to look around first.
 
 Or download the APK from [Releases](https://github.com/Joshua-Wise/rhubarb/releases/latest). Play and
 GitHub builds are signed differently and can't update each other, so stick with one.
